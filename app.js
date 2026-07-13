@@ -22,10 +22,12 @@ import {
   CLOCK_BORDERS,
   CLOCK_FONTS,
   DEFAULT_CLOCK_SETTINGS,
+  clockSyncKey,
   clockTimeParts,
   createClockFrames,
   createClockSlot,
-  normalizeClockSettings
+  normalizeClockSettings,
+  secondsUntilClockSync
 } from "./clock.js";
 
 inject({ mode: import.meta.env.PROD ? "production" : "development" });
@@ -78,9 +80,10 @@ let clockPreviewFrames = [];
 let clockPreviewSignature = "";
 let clockActive = false;
 let clockStopAt = 0;
-let clockLastMinute = null;
+let clockLastSync = null;
 let clockTimer = null;
 let clockWriteInProgress = false;
+let clockWakeLock = null;
 
 const elements = {
   slotList: $("#slotList"),
@@ -728,6 +731,7 @@ function syncClockControls() {
   $("#clockBorder").value = clockSettings.border;
   $("#clockAnimation").value = clockSettings.animation;
   $("#clockTimezone").value = clockSettings.timezone;
+  $("#clockSync").value = String(clockSettings.syncMinutes);
   $("#clockSession").value = String(clockSettings.sessionMinutes);
   $("#clockSpeed").value = String(clockSettings.speed);
   $("#clockSpeedValue").textContent = String(clockSettings.speed);
@@ -743,6 +747,7 @@ function readClockControls() {
     border: $("#clockBorder").value,
     animation: $("#clockAnimation").value,
     timezone: $("#clockTimezone").value,
+    syncMinutes: Number($("#clockSync").value),
     sessionMinutes: Number($("#clockSession").value),
     speed: Number($("#clockSpeed").value),
     leadingZero: $("#clockLeadingZero").checked,
@@ -786,12 +791,28 @@ function renderClockPreview(now) {
   if (clockWriteInProgress) {
     status.textContent = "Syncing the current minute to the badge...";
   } else if (clockActive) {
-    const nextSync = 60 - date.getSeconds();
-    const remaining = Math.max(1, Math.ceil((clockStopAt - Date.now()) / 60000));
-    status.textContent = `Live · next sync in ${nextSync}s · ${remaining} min left`;
+    const nextSync = secondsUntilClockSync(date, clockSettings);
+    const nextLabel = nextSync >= 60 ? `${Math.floor(nextSync / 60)}m ${nextSync % 60}s` : `${nextSync}s`;
+    const sessionLabel = clockStopAt ? `${Math.max(1, Math.ceil((clockStopAt - Date.now()) / 60000))} min left` : "no time cap";
+    status.textContent = `Live · next sync in ${nextLabel} · ${sessionLabel}${clockWakeLock ? " · screen awake" : ""}`;
   } else {
     status.textContent = clockSettings.timezone === "utc" ? "Previewing UTC" : "Previewing your local time";
   }
+}
+
+async function requestClockWakeLock() {
+  if (!clockActive || document.hidden || clockWakeLock || !("wakeLock" in navigator)) return;
+  try {
+    clockWakeLock = await navigator.wakeLock.request("screen");
+    clockWakeLock.addEventListener("release", () => { clockWakeLock = null; });
+  } catch { /* Clock syncing still works when wake lock is unavailable. */ }
+}
+
+async function releaseClockWakeLock() {
+  if (!clockWakeLock) return;
+  const lock = clockWakeLock;
+  clockWakeLock = null;
+  try { await lock.release(); } catch { /* It may already be released by the browser. */ }
 }
 
 async function syncClockToBadge() {
@@ -803,7 +824,7 @@ async function syncClockToBadge() {
     const slot = createClockSlot(date, clockSettings);
     const { payload, usedBytes } = buildPayload([slot], state.brightness, date);
     await writePayload(connectedDevice, payload);
-    clockLastMinute = Math.floor(date.getTime() / 60000);
+    clockLastSync = clockSyncKey(date, clockSettings);
     elements.sendTitle.textContent = "Clock Mode is live";
     elements.sendSubtitle.textContent = `${usedBytes.toLocaleString()} bytes synced. Send your playlist when you want to restore it.`;
     return true;
@@ -819,18 +840,19 @@ async function syncClockToBadge() {
 function stopClock(message = "Live clock stopped. The last synced time remains on the badge.") {
   clockActive = false;
   clockStopAt = 0;
-  clockLastMinute = null;
+  clockLastSync = null;
   clearInterval(clockTimer);
   clockTimer = null;
+  releaseClockWakeLock();
   setClockSessionUi();
   if (message) toast(message);
 }
 
 async function clockTick() {
   if (!clockActive) return;
-  if (Date.now() >= clockStopAt) return stopClock("Clock session finished. Start another session whenever you need it.");
-  const minute = Math.floor(Date.now() / 60000);
-  if (minute !== clockLastMinute) await syncClockToBadge();
+  if (clockStopAt && Date.now() >= clockStopAt) return stopClock("Clock session finished. Start another session whenever you need it.");
+  const syncKey = clockSyncKey(new Date(), clockSettings);
+  if (syncKey !== clockLastSync) await syncClockToBadge();
 }
 
 async function startClock() {
@@ -839,12 +861,13 @@ async function startClock() {
   if (!connectedDevice) return toast("Connect the badge to start live Clock Mode.");
   if (!confirm("Start live Clock Mode? This temporarily replaces the playlist currently stored on the physical badge.")) return;
   clockActive = true;
-  clockStopAt = Date.now() + clockSettings.sessionMinutes * 60000;
-  clockLastMinute = null;
+  clockStopAt = clockSettings.sessionMinutes ? Date.now() + clockSettings.sessionMinutes * 60000 : 0;
+  clockLastSync = null;
   setClockSessionUi();
+  await requestClockWakeLock();
   if (!await syncClockToBadge()) return;
   clockTimer = setInterval(clockTick, 1000);
-  toast("Clock Mode started. Keep this tab open.");
+  toast(clockStopAt ? "Clock Mode started. Keep this tab open." : "Uncapped Clock Mode started. It will run until disconnected or stopped.");
 }
 
 function addClockSnapshot() {
@@ -1212,7 +1235,12 @@ document.querySelectorAll(".clock-controls select, .clock-controls input").forEa
 $("#clockSnapshot").addEventListener("click", addClockSnapshot);
 $("#startClock").addEventListener("click", startClock);
 $("#stopClock").addEventListener("click", () => stopClock());
-document.addEventListener("visibilitychange", () => { if (!document.hidden) clockTick(); });
+document.addEventListener("visibilitychange", async () => {
+  if (!document.hidden) {
+    await requestClockWakeLock();
+    clockTick();
+  }
+});
 
 if ("hid" in navigator) {
   navigator.hid.addEventListener("disconnect", (event) => { if (event.device === connectedDevice) disconnectDevice(); });

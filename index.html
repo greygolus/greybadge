@@ -166,7 +166,8 @@
         <label>Border<select id="clockBorder"></select></label>
         <label>Time animation<select id="clockAnimation"></select></label>
         <label>Time source<select id="clockTimezone"><option value="local">This computer</option><option value="utc">UTC</option></select></label>
-        <label>Live session<select id="clockSession"><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="240">4 hours</option></select></label>
+        <label>Clock accuracy<select id="clockSync"><option value="1">Exact minute</option><option value="5">Every 5 min · lower wear</option></select></label>
+        <label>Live session<select id="clockSession"><option value="0">Until disconnected · no cap</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="240">4 hours</option></select></label>
         <label class="clock-speed">Animation speed <output id="clockSpeedValue">2</output><input id="clockSpeed" type="range" min="1" max="8" value="2"></label>
         <div class="clock-toggles">
           <label><input id="clockLeadingZero" type="checkbox"><span></span>Leading zero</label>
@@ -175,8 +176,8 @@
       </div>
       <aside class="clock-hardware-note">
         <b>How live sync works</b>
-        <p>The stock CH546 firmware cannot draw its stored timestamp. GreyBadge sends one refreshed clock slot at each minute change; animations run on the badge between syncs. Keep this tab open and use the badge button if your model returns to its charging screen.</p>
-        <small>Live sessions stop automatically to limit repeated storage writes. Starting Clock Mode temporarily replaces the playlist on the physical badge; your project here stays untouched.</small>
+        <p>Exact mode refreshes when the displayed minute changes. Low-wear mode refreshes every five minutes. Animations run on the badge between syncs; keep this tab open and use the badge button if your model returns to its charging screen.</p>
+        <small>“Until disconnected” has no timer cap and asks the browser to keep the screen awake. Starting Clock Mode temporarily replaces the playlist on the physical badge; your project here stays untouched.</small>
       </aside>
       <div class="clock-actions">
         <button id="clockSnapshot" class="button secondary">＋ Add snapshot to playlist</button>

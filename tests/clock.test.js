@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CLOCK_ANIMATIONS, CLOCK_BORDERS, CLOCK_FONTS, clockTimeParts, createClockFrames, createClockSlot, normalizeClockSettings } from "../clock.js";
+import { CLOCK_ANIMATIONS, CLOCK_BORDERS, CLOCK_FONTS, clockSyncKey, clockTimeParts, createClockFrames, createClockSlot, normalizeClockSettings, secondsUntilClockSync } from "../clock.js";
 import { buildPayload } from "../protocol.js";
 
 const localDate = new Date(2026, 6, 13, 9, 5, 0);
@@ -30,11 +30,21 @@ test("clock slots use animation mode when needed and fit badge storage", () => {
   assert.ok(buildPayload([animated]).paddedBytes <= 8192);
 });
 
+test("exact and low-wear sync schedules use stable time buckets", () => {
+  const atFiveSeconds = new Date(2026, 6, 13, 9, 5, 5);
+  const atNextMinute = new Date(2026, 6, 13, 9, 6, 0);
+  assert.notEqual(clockSyncKey(atFiveSeconds, { syncMinutes: 1 }), clockSyncKey(atNextMinute, { syncMinutes: 1 }));
+  assert.equal(clockSyncKey(atFiveSeconds, { syncMinutes: 5 }), clockSyncKey(atNextMinute, { syncMinutes: 5 }));
+  assert.equal(secondsUntilClockSync(atFiveSeconds, { syncMinutes: 1 }), 55);
+  assert.equal(secondsUntilClockSync(atFiveSeconds, { syncMinutes: 5 }), 295);
+});
+
 test("invalid saved clock settings migrate back to safe defaults", () => {
   const settings = normalizeClockSettings({ font: "missing", border: "bad", animation: "nope", speed: 99, sessionMinutes: 999 });
   assert.equal(settings.font, "tall");
   assert.equal(settings.border, "corners");
   assert.equal(settings.animation, "colon");
   assert.equal(settings.speed, 8);
-  assert.equal(settings.sessionMinutes, 60);
+  assert.equal(settings.syncMinutes, 1);
+  assert.equal(settings.sessionMinutes, 0);
 });

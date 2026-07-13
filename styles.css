@@ -246,7 +246,7 @@ dialog::backdrop { background: #030506dc; backdrop-filter: blur(8px); }
 .clock-controls > label, .clock-speed { display: grid; grid-template-columns: 1fr auto; gap: 7px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .clock-controls select, .clock-controls input { grid-column: 1 / -1; }
 .clock-controls output { color: var(--green); font-family: ui-monospace,monospace; }
-.clock-toggles { grid-column: span 2; display: flex; gap: 18px; align-items: center; padding-top: 17px; }
+.clock-toggles { display: flex; gap: 18px; align-items: center; padding-top: 17px; }
 .clock-toggles label { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; cursor: pointer; }
 .clock-toggles input { accent-color: var(--green); }
 .clock-hardware-note { margin-top: 14px; border-left: 3px solid var(--green); border-radius: 0 8px 8px 0; background: #24100e; padding: 13px 15px; }

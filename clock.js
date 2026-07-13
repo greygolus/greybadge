@@ -29,7 +29,8 @@ export const DEFAULT_CLOCK_SETTINGS = Object.freeze({
   marker: true,
   timezone: "local",
   speed: 2,
-  sessionMinutes: 60
+  syncMinutes: 1,
+  sessionMinutes: 0
 });
 
 const DISPLAY_WIDTH = 44;
@@ -116,8 +117,20 @@ export function normalizeClockSettings(settings = {}) {
     leadingZero: Boolean(settings.leadingZero),
     marker: settings.marker !== false,
     speed: Math.min(8, Math.max(1, Number(settings.speed) || DEFAULT_CLOCK_SETTINGS.speed)),
-    sessionMinutes: [30, 60, 120, 240].includes(Number(settings.sessionMinutes)) ? Number(settings.sessionMinutes) : DEFAULT_CLOCK_SETTINGS.sessionMinutes
+    syncMinutes: [1, 5].includes(Number(settings.syncMinutes)) ? Number(settings.syncMinutes) : DEFAULT_CLOCK_SETTINGS.syncMinutes,
+    sessionMinutes: [0, 30, 60, 120, 240].includes(Number(settings.sessionMinutes)) ? Number(settings.sessionMinutes) : DEFAULT_CLOCK_SETTINGS.sessionMinutes
   };
+}
+
+export function clockSyncKey(date = new Date(), rawSettings = DEFAULT_CLOCK_SETTINGS) {
+  const settings = normalizeClockSettings(rawSettings);
+  return Math.floor(date.getTime() / (settings.syncMinutes * 60000));
+}
+
+export function secondsUntilClockSync(date = new Date(), rawSettings = DEFAULT_CLOCK_SETTINGS) {
+  const settings = normalizeClockSettings(rawSettings);
+  const interval = settings.syncMinutes * 60;
+  return interval - (Math.floor(date.getTime() / 1000) % interval);
 }
 
 export function clockTimeParts(date = new Date(), settings = DEFAULT_CLOCK_SETTINGS) {
