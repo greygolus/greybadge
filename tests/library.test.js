@@ -1,6 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CONTENT_LIBRARY, CUSTOM_EFFECTS, FRAME_WIDTH, SHOWS, combineFrames, createCustomAnimation, getLibraryEntry } from "../library.js";
+import {
+  CINEMATICS,
+  CONTENT_LIBRARY,
+  CUSTOM_EFFECTS,
+  FRAME_WIDTH,
+  SHOWS,
+  combineFrames,
+  createCinematicPreview,
+  createCinematicSlots,
+  createCustomAnimation,
+  getLibraryEntry,
+} from "../library.js";
 import { buildPayload } from "../protocol.js";
 
 test("ships a large and varied content library", () => {
@@ -8,6 +19,39 @@ test("ships a large and varied content library", () => {
   assert.ok(CONTENT_LIBRARY.filter((entry) => entry.kind === "animation").length >= 20);
   assert.ok(CONTENT_LIBRARY.filter((entry) => entry.category === "Icons").length >= 30);
   assert.ok(SHOWS.length >= 8);
+  assert.ok(CINEMATICS.length >= 5);
+});
+
+test("cinematics span several consecutive slots with detailed continuous frames", () => {
+  for (const cinematic of CINEMATICS) {
+    assert.ok(cinematic.slots >= 3 && cinematic.slots <= 8, cinematic.id);
+    assert.ok(cinematic.totalFrames >= 60, cinematic.id);
+    assert.equal(cinematic.totalFrames, cinematic.slots * cinematic.framesPerSlot, cinematic.id);
+
+    const slots = createCinematicSlots(cinematic);
+    assert.equal(slots.length, cinematic.slots, cinematic.id);
+    for (const slot of slots) {
+      assert.equal(slot.source, "cinematic", cinematic.id);
+      assert.equal(slot.mode, 5, cinematic.id);
+      assert.equal(slot.rows.length, 11, cinematic.id);
+      assert.ok(slot.rows.every((row) => row.length === FRAME_WIDTH * cinematic.framesPerSlot), cinematic.id);
+    }
+
+    const preview = createCinematicPreview(cinematic);
+    assert.equal(preview.length, 11, cinematic.id);
+    assert.ok(preview.every((row) => row.length === FRAME_WIDTH * cinematic.totalFrames), cinematic.id);
+    const signatures = new Set(Array.from({ length: cinematic.totalFrames }, (_, frame) =>
+      preview.map((row) => row.slice(frame * FRAME_WIDTH, (frame + 1) * FRAME_WIDTH).map(Number).join("")).join("|")
+    ));
+    assert.ok(signatures.size > cinematic.totalFrames / 2, `${cinematic.id}: ${signatures.size} unique frames`);
+  }
+});
+
+test("every long-form cinematic fits safely in badge storage", () => {
+  for (const cinematic of CINEMATICS) {
+    const result = buildPayload(createCinematicSlots(cinematic));
+    assert.ok(result.paddedBytes <= 8192, `${cinematic.id}: ${result.paddedBytes}`);
+  }
 });
 
 test("every library item produces valid 11-row badge pixels", () => {

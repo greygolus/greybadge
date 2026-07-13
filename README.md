@@ -35,6 +35,7 @@ npm run dev
 - Frame Studio with playback, horizontal or vertical frame strips, up to 12 frames, frame reordering, and adjustable previous-frame onion skinning
 - Every existing slot and premade animation can be opened and remixed
 - Searchable categorized library with 70+ animations, icons, and patterns
+- Five detailed long-form cinematic animations spanning 4–6 consecutive slots and up to 108 frames
 - Eight one-click multi-slot shows and an Effect Lab for procedural animation
 - Auto-save plus JSON project import and export
 - Direct WebHID upload with no replacement driver

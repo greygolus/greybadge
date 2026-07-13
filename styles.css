@@ -165,6 +165,16 @@ dialog::backdrop { background: #030506dc; backdrop-filter: blur(8px); }
 .show-card span { color: var(--green); font-size: 20px; letter-spacing: 3px; }
 .show-card b { display: block; font-size: 14px; }
 .show-card small { color: var(--muted); line-height: 1.35; }
+.cinematic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cinematic-card { min-width: 0; border: 1px solid #5b302c; border-radius: 10px; padding: 0; overflow: hidden; background: linear-gradient(145deg,#1b1718,#0d1315); color: var(--text); text-align: left; cursor: pointer; transition: .18s; }
+.cinematic-card:hover { border-color: var(--green); transform: translateY(-2px); box-shadow: 0 12px 30px #0005; }
+.cinematic-card canvas { display: block; width: 100%; height: auto; background: #050202; border-bottom: 1px solid #4b211d; image-rendering: pixelated; }
+.cinematic-card > div { min-height: 130px; padding: 14px 16px 15px; display: grid; grid-template-rows: auto auto 1fr auto; gap: 5px; }
+.cinematic-card span { color: var(--green); font: 800 8px ui-monospace,monospace; letter-spacing: .14em; }
+.cinematic-card b { font-size: 16px; }
+.cinematic-card small { color: var(--muted); font-size: 10px; line-height: 1.45; }
+.cinematic-card em { color: #ff9a91; font: normal 800 9px ui-monospace,monospace; text-transform: uppercase; letter-spacing: .08em; }
+.cinematic-note { display: block; margin-top: 10px; color: #cf8d86; font: 700 9px/1.45 ui-monospace,monospace; letter-spacing: .04em; }
 .library-grid { display: block; }
 .library-category-section { margin-top: 28px; }
 .library-category-section:first-child { margin-top: 0; }
@@ -306,6 +316,7 @@ dialog::backdrop { background: #030506dc; backdrop-filter: blur(8px); }
   .slot-main { padding: 16px 13px; }
   .send-bar small { display: none; }
   .library-category-grid, .show-grid { grid-template-columns: 1fr; }
+  .cinematic-grid { grid-template-columns: 1fr; }
   .clock-controls { grid-template-columns: 1fr; }
   .clock-toggles { display: grid; gap: 10px; padding-top: 4px; }
   .clock-actions { grid-template-columns: 1fr; }

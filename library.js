@@ -150,6 +150,328 @@ const animationEntries = [
   { id: "anim-ocean", name: "Ocean drift", tags: "scene water fish calm", generate: () => animation(12, (f, i) => { for (let x = 0; x < 48; x += 1) set(f, x, 8 + Math.round(Math.sin(x / 5 + i / 3))); drawPattern(f, ICONS.fish, (i * 4) % 55 - 7, 0); }) }
 ].map((item) => ({ ...item, category: "Animations", kind: "animation", description: "Self-playing frame animation", speed: 5, mode: 5 }));
 
+const starfield = (frame, index, amount = 18) => {
+  for (let star = 0; star < amount; star += 1) {
+    const x = (star * 17 + Math.floor(index / 2) * (star % 3 === 0 ? -1 : 0) + 96) % 48;
+    const y = (star * 7 + star * star) % 11;
+    if ((star + index) % 5 !== 0) set(frame, x, y);
+  }
+};
+
+const waves = (frame, index, base = 8) => {
+  for (let x = 0; x < 48; x += 1) set(frame, x, base + Math.round(Math.sin(x / 4 + index / 3)));
+};
+
+const drawRocket = (frame, x, y, flame = true) => {
+  drawPattern(frame, ICONS.rocket, x, y);
+  if (flame) {
+    set(frame, x - 1, y + 3);
+    set(frame, x - 3, y + 4);
+    set(frame, x - 5, y + 3);
+  }
+};
+
+const drawSubmarine = (frame, x, y) => {
+  rect(frame, x, y, 13, 5, true);
+  circle(frame, x + 1, y + 2, 2, true);
+  circle(frame, x + 12, y + 2, 2, true);
+  rect(frame, x + 5, y - 2, 4, 2, true);
+  set(frame, x + 4, y + 2, false);
+  set(frame, x + 8, y + 2, false);
+  line(frame, x - 3, y, x - 3, y + 4);
+  line(frame, x - 5, y + 1, x - 3, y + 2);
+  line(frame, x - 5, y + 3, x - 3, y + 2);
+};
+
+const drawCity = (frame, offset, windowPhase = 0) => {
+  for (let building = -1; building < 9; building += 1) {
+    const x = building * 7 - (offset % 7);
+    const height = 3 + ((building * 5 + Math.floor(offset / 7) * 3 + 20) % 7);
+    rect(frame, x, 11 - height, 6, height, true);
+    for (let y = 12 - height; y < 10; y += 2) for (let wx = x + 1; wx < x + 5; wx += 2) {
+      if ((wx + y + windowPhase) % 3) set(frame, wx, y, false);
+    }
+  }
+};
+
+const drawCar = (frame, x, y = 7) => {
+  rect(frame, x + 2, y, 10, 3, true);
+  rect(frame, x + 5, y - 2, 5, 2, true);
+  circle(frame, x + 4, y + 3, 1, true);
+  circle(frame, x + 10, y + 3, 1, true);
+  set(frame, x + 12, y + 1);
+};
+
+const drawShip = (frame, x, y) => {
+  line(frame, x, y, x + 5, y - 3);
+  line(frame, x, y, x + 5, y + 3);
+  line(frame, x + 5, y - 3, x + 5, y + 3);
+  rect(frame, x + 2, y - 1, 6, 3, true);
+  set(frame, x - 2, y);
+};
+
+const drawBoss = (frame, x, y, open = true) => {
+  rect(frame, x, y, 13, 9, true);
+  rect(frame, x - 2, y + 2, 2, 5, true);
+  rect(frame, x + 13, y + 2, 2, 5, true);
+  set(frame, x + 3, y + 3, false);
+  set(frame, x + 9, y + 3, false);
+  if (open) {
+    line(frame, x + 3, y + 6, x + 9, y + 6);
+    set(frame, x + 4, y + 7, false);
+    set(frame, x + 8, y + 7, false);
+  }
+};
+
+const drawFlower = (frame, x, grow, bloom) => {
+  const top = 9 - grow;
+  line(frame, x, 10, x, top);
+  if (grow > 3) {
+    line(frame, x, 7, x - 2, 5);
+    line(frame, x, 8, x + 2, 6);
+  }
+  if (bloom > 0) {
+    circle(frame, x, top, Math.min(3, bloom));
+    circle(frame, x, top, 1, true);
+  }
+};
+
+const cinematic = ({ id, name, description, slots, framesPerSlot = 18, speed = 5, painter }) => ({
+  id,
+  name,
+  description,
+  slots,
+  framesPerSlot,
+  totalFrames: slots * framesPerSlot,
+  speed,
+  painter
+});
+
+export const CINEMATICS = [
+  cinematic({
+    id: "cinematic-moon-mission",
+    name: "Moon Mission",
+    description: "Launch, star flight, lunar orbit, landing, and a flag-plant finale.",
+    slots: 5,
+    speed: 5,
+    painter: (frame, index, total) => {
+      starfield(frame, index, 16);
+      const scene = Math.floor(index / 18);
+      const local = index % 18;
+      if (scene === 0) {
+        line(frame, 0, 10, 47, 10);
+        rect(frame, 17, 8, 13, 3, true);
+        drawRocket(frame, 20, 6 - Math.floor(local / 3));
+        for (let smoke = 0; smoke < Math.min(8, local); smoke += 2) circle(frame, 23 + (smoke % 4 ? -smoke : smoke), 10 - smoke % 2, 1);
+      } else if (scene === 1) {
+        drawRocket(frame, local * 3 - 7, 2 + Math.round(Math.sin(local / 3) * 2));
+      } else if (scene === 2) {
+        circle(frame, 31, 5, 4, true);
+        circle(frame, 29, 4, 1, false);
+        circle(frame, 33, 7, 1, false);
+        line(frame, 19, 8, 43, 2);
+        const angle = local / 18 * Math.PI * 2;
+        drawRocket(frame, 27 + Math.round(Math.cos(angle) * 10), 2 + Math.round(Math.sin(angle) * 3), false);
+      } else if (scene === 3) {
+        for (let x = 0; x < 48; x += 1) set(frame, x, 9 + ((x * 7) % 3));
+        drawRocket(frame, 21, Math.min(4, -5 + local), local < 13);
+        if (local > 12) for (let dust = 0; dust < 10; dust += 2) set(frame, 23 + (dust % 4 ? dust : -dust), 9);
+      } else {
+        for (let x = 0; x < 48; x += 1) set(frame, x, 10 - (x % 9 === 0 ? 1 : 0));
+        drawPattern(frame, ICONS.rocket, 4, 3);
+        line(frame, 29, 3, 29, 9);
+        const wave = local % 6 < 3 ? 1 : 0;
+        line(frame, 30, 3, 38, 3 + wave);
+        line(frame, 30, 4, 38, 4 + wave);
+        circle(frame, 43, 1, local % 4 === 0 ? 2 : 1);
+      }
+      if (index === total - 1) circle(frame, 43, 1, 2, true);
+    }
+  }),
+  cinematic({
+    id: "cinematic-deep-sea",
+    name: "Deep Sea Expedition",
+    description: "A submarine dives through reefs, jellyfish, ruins, and buried treasure.",
+    slots: 5,
+    speed: 5,
+    painter: (frame, index) => {
+      const scene = Math.floor(index / 18);
+      const local = index % 18;
+      for (let bubble = 0; bubble < 8; bubble += 1) {
+        const x = (bubble * 11 + index) % 48;
+        const y = 10 - ((bubble * 4 + index) % 13);
+        if (y >= 0) circle(frame, x, y, 1);
+      }
+      waves(frame, index, scene === 0 ? 1 : 9);
+      if (scene === 0) {
+        drawSubmarine(frame, 18, Math.min(5, -3 + Math.floor(local / 2)));
+      } else if (scene === 1) {
+        drawSubmarine(frame, local * 3 - 12, 3);
+        for (let plant = 2; plant < 48; plant += 8) line(frame, plant, 10, plant + Math.round(Math.sin(local / 3 + plant) * 2), 6);
+        drawPattern(frame, ICONS.fish, 39 - local * 2, 0);
+      } else if (scene === 2) {
+        drawSubmarine(frame, 4 + Math.round(Math.sin(local / 4) * 3), 3);
+        for (let jelly = 0; jelly < 3; jelly += 1) {
+          const x = 25 + jelly * 8;
+          const y = 2 + Math.round(Math.sin(local / 3 + jelly) * 2);
+          circle(frame, x, y, 2, true);
+          line(frame, x - 1, y + 2, x - 2, y + 6);
+          line(frame, x + 1, y + 2, x + 2, y + 6);
+        }
+      } else if (scene === 3) {
+        for (let column = 5; column < 45; column += 10) {
+          rect(frame, column, 3, 3, 8, true);
+          line(frame, column - 2, 3, column + 5, 3);
+        }
+        drawSubmarine(frame, 3 + local, 4);
+      } else {
+        drawSubmarine(frame, 2, 2);
+        rect(frame, 28, 6, 12, 5, true);
+        line(frame, 28, 6, 34, 2 + Math.max(0, 4 - Math.floor(local / 3)));
+        line(frame, 40, 6, 34, 2 + Math.max(0, 4 - Math.floor(local / 3)));
+        for (let jewel = 0; jewel < Math.min(9, local); jewel += 2) circle(frame, 31 + jewel, 5 - jewel % 3, 1, true);
+      }
+    }
+  }),
+  cinematic({
+    id: "cinematic-neon-drive",
+    name: "Neon Night Drive",
+    description: "A parallax city run through traffic, tunnels, rain, and sunrise.",
+    slots: 4,
+    framesPerSlot: 18,
+    speed: 6,
+    painter: (frame, index) => {
+      const scene = Math.floor(index / 18);
+      const local = index % 18;
+      if (scene < 3) drawCity(frame, index * (scene + 1), index);
+      line(frame, 0, 10, 47, 10);
+      if (scene === 0) {
+        drawCar(frame, Math.min(16, local - 8));
+        for (let x = 0; x < 48; x += 8) set(frame, (x - index * 2 + 96) % 48, 10);
+      } else if (scene === 1) {
+        drawCar(frame, 15, 7 + Math.round(Math.sin(local / 2)));
+        drawCar(frame, 44 - local * 3, 6);
+        for (let x = 0; x < 48; x += 6) line(frame, (x - index * 2 + 96) % 48, 0, (x - index * 2 + 94) % 48, 3);
+      } else if (scene === 2) {
+        for (let stripe = 0; stripe < 5; stripe += 1) {
+          line(frame, 0, stripe * 2, 47, 5 + Math.round((stripe - 2) * (1 + local / 9)));
+        }
+        drawCar(frame, 15);
+      } else {
+        circle(frame, 38, 7 - Math.floor(local / 4), 3, true);
+        for (let x = 0; x < 48; x += 1) set(frame, x, 8 + Math.round(Math.sin(x / 5 + local / 3)));
+        drawCar(frame, 14);
+        for (let bird = 0; bird < 3; bird += 1) {
+          line(frame, 4 + bird * 8, 2 + bird, 6 + bird * 8, 1 + bird);
+          line(frame, 6 + bird * 8, 1 + bird, 8 + bird * 8, 2 + bird);
+        }
+      }
+    }
+  }),
+  cinematic({
+    id: "cinematic-boss-battle",
+    name: "Arcade Boss Battle",
+    description: "Approach, dodge, counterattack, boss explosion, and victory lap.",
+    slots: 6,
+    framesPerSlot: 18,
+    speed: 6,
+    painter: (frame, index) => {
+      starfield(frame, index, 12);
+      const scene = Math.floor(index / 18);
+      const local = index % 18;
+      const shipY = 5 + Math.round(Math.sin(index / 3) * (scene === 1 ? 3 : 1));
+      if (scene < 4) drawShip(frame, 3, shipY);
+      if (scene === 0) {
+        drawBoss(frame, 48 - local, 1, false);
+      } else if (scene === 1) {
+        drawBoss(frame, 31, 1, true);
+        for (let shot = 0; shot < 4; shot += 1) circle(frame, 29 - ((local * 3 + shot * 11) % 28), 2 + shot * 2, 1, true);
+      } else if (scene === 2) {
+        drawBoss(frame, 31, 1, local % 4 < 2);
+        for (let shot = 0; shot < 5; shot += 1) set(frame, 11 + ((local * 4 + shot * 7) % 23), shipY + (shot % 3 - 1));
+        if (local > 10) circle(frame, 34 + local % 5, 5, 2);
+      } else if (scene === 3) {
+        drawBoss(frame, 31 + (local % 2), 1, false);
+        const radius = Math.min(10, 1 + Math.floor(local / 2));
+        circle(frame, 37, 5, radius);
+        if (local % 3 === 0) circle(frame, 37, 5, Math.max(1, radius - 3), true);
+      } else if (scene === 4) {
+        for (let particle = 0; particle < 28; particle += 1) {
+          const angle = particle / 28 * Math.PI * 2;
+          const distance = Math.min(24, local + particle % 4);
+          set(frame, 37 + Math.round(Math.cos(angle) * distance), 5 + Math.round(Math.sin(angle) * distance / 3));
+        }
+        drawShip(frame, 3 + local, shipY);
+      } else {
+        drawShip(frame, 34 - local, 5);
+        drawPattern(frame, ICONS.crown, 18, 2);
+        for (let sparkle = 0; sparkle < 10; sparkle += 1) circle(frame, (sparkle * 13 + local * 2) % 48, (sparkle * 5) % 11, sparkle % 4 === local % 4 ? 1 : 0, true);
+      }
+    }
+  }),
+  cinematic({
+    id: "cinematic-secret-garden",
+    name: "Secret Garden",
+    description: "Rain wakes a seed, flowers bloom, butterflies arrive, and fireflies glow.",
+    slots: 4,
+    framesPerSlot: 18,
+    speed: 5,
+    painter: (frame, index) => {
+      const scene = Math.floor(index / 18);
+      const local = index % 18;
+      line(frame, 0, 10, 47, 10);
+      if (scene === 0) {
+        for (let drop = 0; drop < 12; drop += 1) {
+          const x = (drop * 13 + local * 2) % 48;
+          const y = (drop * 5 + local * 2) % 12 - 1;
+          set(frame, x, y);
+          set(frame, x - 1, y + 1);
+        }
+        circle(frame, 23, 9, 1, true);
+      } else if (scene === 1) {
+        const grow = Math.min(8, Math.floor(local / 2));
+        drawFlower(frame, 23, grow, 0);
+        for (let leaf = 0; leaf < 4; leaf += 1) set(frame, 21 + leaf, 8 - leaf % 2);
+      } else if (scene === 2) {
+        for (let flower = 0; flower < 5; flower += 1) drawFlower(frame, 6 + flower * 9, 7 - flower % 2, Math.min(3, Math.floor(local / 4)));
+        if (local > 8) drawPattern(frame, ICONS.butterfly, local * 2 - 22, 0);
+      } else {
+        for (let flower = 0; flower < 5; flower += 1) drawFlower(frame, 6 + flower * 9, 7 - flower % 2, 2);
+        circle(frame, 40, 2, 3);
+        for (let firefly = 0; firefly < 15; firefly += 1) {
+          const x = (firefly * 17 + local) % 48;
+          const y = 1 + (firefly * 7 + Math.round(Math.sin(local / 2 + firefly) * 2) + 20) % 8;
+          if ((firefly + local) % 3 === 0) circle(frame, x, y, 1, true);
+        }
+      }
+    }
+  })
+];
+
+export function getCinematic(id) {
+  return CINEMATICS.find((item) => item.id === id);
+}
+
+export function createCinematicSlots(cinematicOrId) {
+  const item = typeof cinematicOrId === "string" ? getCinematic(cinematicOrId) : cinematicOrId;
+  if (!item) throw new RangeError("Unknown cinematic animation.");
+  return Array.from({ length: item.slots }, (_, slotIndex) => ({
+    text: "",
+    source: "cinematic",
+    title: `${item.name} · scene ${slotIndex + 1}/${item.slots}`,
+    rows: animation(item.framesPerSlot, (frame, localIndex) => item.painter(frame, slotIndex * item.framesPerSlot + localIndex, item.totalFrames)),
+    speed: item.speed,
+    mode: 5,
+    blink: false,
+    ants: false
+  }));
+}
+
+export function createCinematicPreview(cinematicOrId) {
+  const slots = createCinematicSlots(cinematicOrId);
+  return slots.reduce((rows, slot) => rows.map((row, y) => row.concat(slot.rows[y])), blank(0));
+}
+
 const patternEntries = [
   ["checker", "Checkerboard", (r) => { for (let y = 0; y < 11; y += 1) for (let x = 0; x < 44; x += 1) if ((Math.floor(x / 2) + Math.floor(y / 2)) % 2 === 0) set(r, x, y); }],
   ["diagonal", "Diagonal stripes", (r) => { for (let y = 0; y < 11; y += 1) for (let x = 0; x < 44; x += 1) if ((x + y * 2) % 7 < 2) set(r, x, y); }],

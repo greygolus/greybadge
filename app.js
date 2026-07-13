@@ -9,11 +9,14 @@ import {
   writePayload
 } from "./protocol.js";
 import {
+  CINEMATICS,
   CONTENT_LIBRARY,
   CUSTOM_EFFECTS,
   FRAME_WIDTH,
   SHOWS,
   combineFrames,
+  createCinematicPreview,
+  createCinematicSlots,
   createCustomAnimation,
   getLibraryEntry
 } from "./library.js";
@@ -70,6 +73,7 @@ let eraseMode = false;
 let libraryFilter = "Everything";
 let favorites = new Set(JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]"));
 let libraryRowsCache = new Map();
+let cinematicRowsCache = new Map();
 let lastLibraryFrame = 0;
 let effectDraft = null;
 let pixelCreatesNew = false;
@@ -128,6 +132,7 @@ const elements = {
   clockBorderCanvas: $("#clockBorderCanvas"),
   clockLiveStatus: $("#clockLiveStatus"),
   clockReadout: $("#clockReadout"),
+  cinematicGrid: $("#cinematicGrid"),
   libraryGrid: $("#libraryGrid"),
   showGrid: $("#showGrid"),
   loadedTray: $("#loadedTray"),
@@ -229,7 +234,7 @@ function renderSlots() {
     const card = elements.template.content.firstElementChild.cloneNode(true);
     card.classList.toggle("selected", index === selectedIndex);
     $(".slot-number", card).textContent = String(index + 1).padStart(2, "0");
-    $(".source-label", card).textContent = slot.source === "animation" ? "CUSTOM EFFECT" : slot.source === "library" ? "PREMADE ART" : slot.source.toUpperCase();
+    $(".source-label", card).textContent = slot.source === "cinematic" ? "LONG ANIMATION" : slot.source === "animation" ? "CUSTOM EFFECT" : slot.source === "library" ? "PREMADE ART" : slot.source.toUpperCase();
     const text = $(".message-text", card);
     text.value = slot.source === "text" ? slot.text : slot.title || (slot.source === "image" ? "Imported bitmap" : "Custom pixel frame");
     text.disabled = slot.source !== "text";
@@ -460,6 +465,21 @@ function applyShow(show) {
   libraryFeedback(`✓ ${show.name} loaded as a ${state.slots.length}-slot show.`);
 }
 
+function cinematicRows(item) {
+  if (!cinematicRowsCache.has(item.id)) cinematicRowsCache.set(item.id, createCinematicPreview(item));
+  return cinematicRowsCache.get(item.id);
+}
+
+function applyCinematic(item) {
+  state.slots = createCinematicSlots(item).map((slot) => ({ ...slot, rows: structuredClone(slot.rows) }));
+  selectedIndex = 0;
+  previewStarted = performance.now();
+  persist();
+  renderSlots();
+  renderLoadedTray();
+  libraryFeedback(`${item.name} loaded across ${item.slots} consecutive slots · ${item.totalFrames} total frames. After upload, select M1–8 on the badge to play every scene.`);
+}
+
 function renderLoadedTray() {
   elements.loadedCount.textContent = `${state.slots.length} / 8 slots`;
   elements.loadedTray.replaceChildren();
@@ -541,6 +561,19 @@ function renderShows() {
   });
 }
 
+function renderCinematics() {
+  elements.cinematicGrid.replaceChildren();
+  CINEMATICS.forEach((item) => {
+    const button = document.createElement("button");
+    button.className = "cinematic-card";
+    button.dataset.cinematicId = item.id;
+    button.setAttribute("aria-label", `Load ${item.name}, a ${item.slots}-slot animation`);
+    button.innerHTML = `<canvas width="528" height="132"></canvas><div><span>${item.slots} SLOTS · ${item.totalFrames} FRAMES</span><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.description)}</small><em>Load full sequence →</em></div>`;
+    button.addEventListener("click", () => applyCinematic(item));
+    elements.cinematicGrid.append(button);
+  });
+}
+
 function renderLibrary() {
   const query = elements.librarySearch.value.trim().toLowerCase();
   const filtered = CONTENT_LIBRARY.filter((entry) => {
@@ -589,6 +622,12 @@ function renderLibrary() {
 function drawLibraryPreviews(now, force = false) {
   if (!elements.libraryDialog.open || (!force && now - lastLibraryFrame < 120)) return;
   lastLibraryFrame = now;
+  elements.cinematicGrid.querySelectorAll(".cinematic-card").forEach((card) => {
+    const item = CINEMATICS.find((candidate) => candidate.id === card.dataset.cinematicId);
+    if (!item) return;
+    const frame = Math.floor(now / 120) % item.totalFrames;
+    drawLedCanvas($("canvas", card), rowsToViewport(cinematicRows(item), frame), 12);
+  });
   elements.libraryGrid.querySelectorAll(".library-item").forEach((item) => {
     const entry = getLibraryEntry(item.dataset.entryId);
     const rows = entryRows(entry);
@@ -605,6 +644,7 @@ function drawLibraryPreviews(now, force = false) {
 function openLibrary() {
   elements.libraryNotice.classList.remove("show");
   renderLibraryFilters();
+  renderCinematics();
   renderShows();
   renderLibrary();
   renderLoadedTray();
