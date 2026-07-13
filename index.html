@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080b0d">
+  <title>BadgeBetter</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="topbar">
+    <a class="brand" href="#">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span><b>Badge</b>Better</span>
+    </a>
+    <div class="device-area">
+      <span id="deviceStatus" class="status"><i></i> Badge not connected</span>
+      <button id="connectButton" class="button secondary">Connect badge</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">CH546 · 44 × 11 LED STUDIO</p>
+        <h1>Make eleven pixels<br><em>feel enormous.</em></h1>
+        <p class="intro">Compose messages, art, and animations with a live hardware preview—then send the whole show straight to your badge.</p>
+      </div>
+      <aside class="hardware-card">
+        <div><span>DISPLAY</span><strong>44 × 11</strong></div>
+        <div><span>LIBRARY</span><strong>70+ LOOPS</strong></div>
+        <div><span>STORAGE</span><strong id="storageLabel">0 / 8,192 B</strong></div>
+        <div><span>SLOTS</span><strong id="slotLabel">2 / 8</strong></div>
+      </aside>
+    </section>
+
+    <div id="previewSentinel" aria-hidden="true"></div>
+    <section id="previewPanel" class="preview-panel panel locked">
+      <div class="panel-title">
+        <div>
+          <p class="eyebrow">LIVE PREVIEW</p>
+          <h2 id="previewTitle">Message 1</h2>
+        </div>
+        <div class="preview-actions">
+          <button id="previousPreview" class="icon-button" aria-label="Previous message">←</button>
+          <button id="playPreview" class="icon-button active" aria-label="Pause preview">Ⅱ</button>
+          <button id="nextPreview" class="icon-button" aria-label="Next message">→</button>
+          <button id="scrollLockButton" class="lock-button active" aria-label="Turn preview scroll lock off" aria-pressed="true"><span>⌖</span> Lock on</button>
+        </div>
+      </div>
+      <div class="badge-shell">
+        <div class="badge-screen"><canvas id="previewCanvas" width="528" height="132"></canvas></div>
+        <div class="badge-button"></div>
+      </div>
+      <div class="timeline"><span id="timelineProgress"></span></div>
+    </section>
+
+    <div class="workspace-grid">
+      <section class="messages-column">
+        <div class="section-heading">
+          <div><p class="eyebrow">PLAYLIST</p><h2>Message slots</h2></div>
+          <button id="addSlot" class="button secondary">＋ New creation</button>
+        </div>
+        <div id="slotList" class="slot-list"></div>
+      </section>
+
+      <aside class="settings-column">
+        <section class="panel settings-panel">
+          <p class="eyebrow">GLOBAL OUTPUT</p>
+          <label class="control-label" for="brightness">Brightness <output id="brightnessValue">100%</output></label>
+          <input id="brightness" type="range" min="1" max="4" value="4">
+          <div class="range-labels"><span>25</span><span>50</span><span>75</span><span>100</span></div>
+        </section>
+
+        <section class="panel tools-panel">
+          <p class="eyebrow">DESIGN TOOLS</p>
+          <button id="newCreationButton" class="tool-button featured"><span>＋</span><div><b>Create from scratch</b><small>Text, pixel art, or frame animation</small></div><i>→</i></button>
+          <button id="libraryButton" class="tool-button"><span>◫</span><div><b>Premade library</b><small>70+ animations, icons &amp; patterns</small></div><i>→</i></button>
+          <button id="frameStudioButton" class="tool-button"><span>▤</span><div><b>Frame studio</b><small>Build or edit full animations</small></div><i>→</i></button>
+          <button id="animationButton" class="tool-button"><span>⌁</span><div><b>Effect lab</b><small>Animate anything in the current slot</small></div><i>→</i></button>
+          <button id="pixelButton" class="tool-button"><span>✦</span><div><b>Pixel editor</b><small>Draw a custom 44 × 11 frame</small></div><i>→</i></button>
+          <label class="tool-button" for="imageInput"><span>▧</span><div><b>Import image</b><small>Dither any picture to LEDs</small></div><i>→</i></label>
+          <input id="imageInput" type="file" accept="image/*" hidden>
+          <button id="textModeButton" class="tool-button"><span>T</span><div><b>Return to text</b><small>Use a system font and Unicode</small></div><i>→</i></button>
+        </section>
+
+        <section class="panel library-panel">
+          <p class="eyebrow">PRESETS</p>
+          <div class="two-buttons">
+            <button id="exportButton" class="button secondary">Export</button>
+            <label for="importInput" class="button secondary">Import</label>
+            <input id="importInput" type="file" accept="application/json" hidden>
+          </div>
+          <button id="resetButton" class="text-button">Reset this project</button>
+        </section>
+      </aside>
+    </div>
+
+    <section class="send-bar">
+      <div><span id="sendDot" class="send-dot"></span><div><b id="sendTitle">Ready to compose</b><small id="sendSubtitle">Connect the badge when you’re ready to upload.</small></div></div>
+      <button id="sendButton" class="button primary" disabled>Send to badge <span>↗</span></button>
+    </section>
+  </main>
+
+  <dialog id="pixelDialog">
+    <form method="dialog" class="dialog-card">
+      <div class="dialog-heading"><div><p class="eyebrow">PIXEL EDITOR</p><h2>Draw frame</h2></div><button class="icon-button" value="cancel" aria-label="Close">×</button></div>
+      <p>Click or drag to draw. Right-click to erase.</p>
+      <canvas id="pixelCanvas" width="704" height="176"></canvas>
+      <div class="dialog-actions"><button id="clearPixels" type="button" class="button secondary">Clear</button><button id="invertPixels" type="button" class="button secondary">Invert</button><span></span><button id="savePixels" value="default" class="button primary">Use this frame</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="libraryDialog" class="wide-dialog">
+    <div class="dialog-card library-dialog-card">
+      <div class="dialog-heading"><div><p class="eyebrow">PREMADE LIBRARY</p><h2>Pick something fun</h2></div><button class="icon-button dialog-close" aria-label="Close library">×</button></div>
+      <div class="library-toolbar">
+        <label class="search-box">⌕ <input id="librarySearch" type="search" placeholder="Search animations, icons, patterns…"></label>
+        <div id="libraryFilters" class="filter-pills"></div>
+        <button class="button secondary dialog-close library-close-button">Close menu</button>
+        <div id="loadedSummary" class="loaded-summary"></div>
+        <div id="libraryNotice" class="library-notice" role="status"></div>
+      </div>
+      <section class="loaded-section">
+        <div class="subheading"><div><p class="eyebrow">CURRENT PLAYLIST</p><h3>Loaded on the badge</h3></div><small id="loadedCount">0 / 8 slots</small></div>
+        <div id="loadedTray" class="loaded-tray"></div>
+      </section>
+      <section class="show-section">
+        <div class="subheading"><div><p class="eyebrow">ONE-CLICK PLAYLISTS</p><h3>Premade shows</h3></div><small>Replaces the current playlist</small></div>
+        <div id="showGrid" class="show-grid"></div>
+      </section>
+      <section>
+        <div class="subheading"><div><p class="eyebrow">SINGLE SLOT</p><h3 id="libraryResultTitle">Everything</h3></div><small id="libraryCount"></small></div>
+        <div id="libraryGrid" class="library-grid"></div>
+      </section>
+    </div>
+  </dialog>
+
+  <dialog id="animationDialog">
+    <div class="dialog-card effect-dialog-card">
+      <div class="dialog-heading"><div><p class="eyebrow">EFFECT LAB</p><h2>Animate this slot</h2></div><button class="icon-button dialog-close" aria-label="Close effect lab">×</button></div>
+      <p>Turn the current text, image, or pixel art into a self-playing frame animation.</p>
+      <div class="effect-preview"><canvas id="effectCanvas" width="528" height="132"></canvas></div>
+      <div class="effect-controls">
+        <label>Generated effect<select id="customEffect"></select></label>
+        <label>Frames <output id="frameCountValue">8</output><input id="frameCount" type="range" min="4" max="12" value="8"></label>
+        <label>Playback speed <output id="effectSpeedValue">5</output><input id="effectSpeed" type="range" min="1" max="8" value="5"></label>
+      </div>
+      <div class="dialog-actions"><span></span><span></span><span></span><button id="applyEffect" class="button primary">Create animation</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="createDialog">
+    <div class="dialog-card create-dialog-card">
+      <div class="dialog-heading"><div><p class="eyebrow">NEW CREATION</p><h2>What are you making?</h2></div><button class="icon-button dialog-close" aria-label="Close new creation menu">×</button></div>
+      <p>Start simple or jump straight into a frame-by-frame animation.</p>
+      <div class="create-options">
+        <button data-create="text"><span>T</span><div><b>Scrolling text</b><small>Write a message and use the badge’s native effects.</small></div><i>Fastest</i></button>
+        <button data-create="pixels"><span>✦</span><div><b>Pixel art</b><small>Draw a clean, static 44 × 11 design from scratch.</small></div><i>Draw</i></button>
+        <button data-create="animation"><span>▤</span><div><b>Frame animation</b><small>Draw every frame with playback and onion skinning.</small></div><i>Advanced</i></button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="frameStudioDialog" class="frame-studio-dialog">
+    <div class="dialog-card frame-studio-card">
+      <div class="dialog-heading frame-studio-heading"><div><p class="eyebrow">FRAME STUDIO</p><h2 id="frameStudioTitle">New animation</h2></div><div class="frame-heading-actions"><button id="framePlayButton" class="button secondary">▶ Preview</button><button class="icon-button dialog-close" aria-label="Close Frame Studio">×</button></div></div>
+      <div class="frame-studio-preview"><canvas id="framePreviewCanvas" width="528" height="132"></canvas></div>
+      <div class="frame-studio-options">
+        <div class="segmented" aria-label="Frame strip orientation"><button id="horizontalFrames" class="active">Horizontal</button><button id="verticalFrames">Vertical</button></div>
+        <label class="onion-toggle"><input id="onionSkin" type="checkbox" checked><span></span>Previous-frame ghost</label>
+        <label class="onion-opacity">Ghost opacity <output id="onionOpacityValue">30%</output><input id="onionOpacity" type="range" min="10" max="60" value="30"></label>
+        <label class="frame-speed">Playback speed <output id="frameSpeedValue">5</output><input id="frameSpeed" type="range" min="1" max="8" value="5"></label>
+      </div>
+      <section class="sequence-section">
+        <div class="subheading"><div><p class="eyebrow">CONTINUOUS SEQUENCE</p><h3>All frames</h3></div><small id="frameSequenceCount">1 frame</small></div>
+        <div id="frameSequence" class="frame-sequence horizontal"></div>
+      </section>
+      <section class="frame-editor-section">
+        <div class="subheading"><div><p class="eyebrow">ACTIVE FRAME</p><h3 id="activeFrameTitle">Frame 1</h3></div><small>Draw with left-click · erase with right-click</small></div>
+        <canvas id="frameEditorCanvas" width="704" height="176"></canvas>
+        <div class="frame-tools">
+          <button id="addFrame" class="button secondary">＋ Blank frame</button>
+          <button id="duplicateFrame" class="button secondary">⧉ Duplicate</button>
+          <button id="copyPreviousFrame" class="button secondary">← Copy previous</button>
+          <button id="moveFrameLeft" class="button secondary">Move left</button>
+          <button id="moveFrameRight" class="button secondary">Move right</button>
+          <button id="clearFrame" class="button secondary">Clear</button>
+          <button id="deleteFrame" class="button secondary danger">Delete</button>
+        </div>
+      </section>
+      <div class="frame-studio-footer"><span id="frameStorageEstimate">Animation size: 0 B</span><button class="button secondary dialog-close">Cancel</button><button id="saveFrameAnimation" class="button primary">Save animation</button></div>
+    </div>
+  </dialog>
+
+  <template id="libraryItemTemplate">
+    <article class="library-item">
+      <button class="favorite" aria-label="Toggle favorite">☆</button>
+      <canvas width="264" height="66"></canvas>
+      <div><span class="kind"></span><h4></h4><p></p></div>
+      <div class="library-item-actions"><button class="replace button secondary">Replace slot</button><button class="append button primary">＋ Add</button></div>
+    </article>
+  </template>
+
+  <template id="slotTemplate">
+    <article class="slot-card panel">
+      <button class="slot-select" aria-label="Preview this message"><span class="slot-number">01</span><i></i></button>
+      <div class="slot-main">
+        <div class="slot-topline"><span class="source-label">TEXT</span><div class="slot-actions"><button class="edit-animation" title="Open in Frame Studio" aria-label="Open in Frame Studio">▤</button><button class="duplicate" title="Duplicate" aria-label="Duplicate slot">⧉</button><button class="move-up" title="Move up" aria-label="Move slot up">↑</button><button class="move-down" title="Move down" aria-label="Move slot down">↓</button><button class="remove" title="Delete" aria-label="Delete slot">×</button></div></div>
+        <textarea class="message-text" rows="2" maxlength="240" spellcheck="false"></textarea>
+        <div class="slot-controls">
+          <label>Effect<select class="mode"></select></label>
+          <label>Speed<div class="speed-wrap"><input class="speed" type="range" min="1" max="8"><output></output></div></label>
+          <label class="check"><input class="blink" type="checkbox"><span></span>Blink</label>
+          <label class="check"><input class="ants" type="checkbox"><span></span>LED border</label>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <div id="toast" role="status"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
