@@ -5,7 +5,7 @@ The production project is deployed from this repository with Vite.
 ## First-time link
 
 ```bash
-npx vercel link --yes --project greybadge --scope greygolus
+npx vercel link --yes --project greybadge
 ```
 
 The generated `.vercel/` directory is intentionally ignored because it contains local project linkage metadata.
@@ -22,7 +22,7 @@ Every push to the connected production branch can also create a deployment throu
 
 ## Web Analytics
 
-The app imports `inject` from `@vercel/analytics`, and Vite bundles the supported analytics client during production builds. Web Analytics must also be enabled for the Vercel project from its Analytics page. After enabling it, redeploy so Vercel adds the project’s analytics routes.
+The app imports `inject` from `@vercel/analytics`, and Vite bundles the supported analytics client during production builds. Web Analytics is enabled on the project’s [Analytics page](https://vercel.com/greygolus-projects/greybadge/analytics). After changing analytics settings, redeploy so Vercel refreshes the project’s analytics routes.
 
 Verify analytics by loading the production page and confirming that the analytics script is requested successfully. Visitor reports appear in the project’s **Analytics** tab after traffic is received.
 

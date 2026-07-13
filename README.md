@@ -4,6 +4,8 @@ GreyBadge is a browser-based design studio for the common 44×11 monochrome LED 
 
 It runs entirely in a Chromium-based browser and uploads directly to the badge through WebHID—no replacement driver or desktop installer required.
 
+**Live app:** [greybadge.vercel.app](https://greybadge.vercel.app)
+
 ## Use it locally
 
 1. Install [Node.js](https://nodejs.org/) 20 or newer.
