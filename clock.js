@@ -40,14 +40,12 @@ const BORDER_POSITIONS = [
   ...Array.from({ length: DISPLAY_HEIGHT - 2 }, (_, y) => [0, DISPLAY_HEIGHT - 2 - y])
 ];
 
-export const CLOCK_BORDER_PIXEL_COUNT = BORDER_POSITIONS.length;
+const PERIMETER_PIXEL_COUNT = BORDER_POSITIONS.length;
+export const CLOCK_BORDER_PIXEL_COUNT = DISPLAY_WIDTH * DISPLAY_HEIGHT;
+const customizableRowsCache = new Map();
 
 export function clockBorderPositionIndex(x, y) {
-  if (y === 0 && x >= 0 && x < DISPLAY_WIDTH) return x;
-  if (x === DISPLAY_WIDTH - 1 && y > 0 && y < DISPLAY_HEIGHT - 1) return DISPLAY_WIDTH + y - 1;
-  if (y === DISPLAY_HEIGHT - 1 && x >= 0 && x < DISPLAY_WIDTH) return DISPLAY_WIDTH + DISPLAY_HEIGHT - 2 + (DISPLAY_WIDTH - 1 - x);
-  if (x === 0 && y > 0 && y < DISPLAY_HEIGHT - 1) return DISPLAY_WIDTH * 2 + DISPLAY_HEIGHT - 2 + (DISPLAY_HEIGHT - 2 - y);
-  return -1;
+  return x >= 0 && x < DISPLAY_WIDTH && y >= 0 && y < DISPLAY_HEIGHT ? y * DISPLAY_WIDTH + x : -1;
 }
 
 function borderMatches(style, x, y, index = 0) {
@@ -61,14 +59,25 @@ function borderMatches(style, x, y, index = 0) {
 }
 
 export function createClockBorderPattern(style = "corners") {
-  return BORDER_POSITIONS.map(([x, y], index) => borderMatches(style, x, y, index) ? "1" : "0").join("");
+  const rows = Array.from({ length: DISPLAY_HEIGHT }, () => Array(DISPLAY_WIDTH).fill(false));
+  if (style === "solid") rows.forEach((row) => row.fill(true));
+  else if (style !== "clear") BORDER_POSITIONS.forEach(([x, y], index) => { rows[y][x] = borderMatches(style, x, y, index); });
+  return rows.flat().map((pixel) => pixel ? "1" : "0").join("");
 }
 
 export function clockBorderRows(pattern = "") {
   const rows = Array.from({ length: DISPLAY_HEIGHT }, () => Array(DISPLAY_WIDTH).fill(false));
-  const safePattern = typeof pattern === "string" && pattern.length === CLOCK_BORDER_PIXEL_COUNT ? pattern : createClockBorderPattern("corners");
-  BORDER_POSITIONS.forEach(([x, y], index) => { rows[y][x] = safePattern[index] === "1"; });
+  if (typeof pattern === "string" && pattern.length === PERIMETER_PIXEL_COUNT && /^[01]+$/.test(pattern)) {
+    BORDER_POSITIONS.forEach(([x, y], index) => { rows[y][x] = pattern[index] === "1"; });
+    return rows;
+  }
+  const safePattern = typeof pattern === "string" && pattern.length === CLOCK_BORDER_PIXEL_COUNT && /^[01]+$/.test(pattern) ? pattern : createClockBorderPattern("corners");
+  for (let y = 0; y < DISPLAY_HEIGHT; y += 1) for (let x = 0; x < DISPLAY_WIDTH; x += 1) rows[y][x] = safePattern[clockBorderPositionIndex(x, y)] === "1";
   return rows;
+}
+
+function normalizeCustomBorder(pattern) {
+  return clockBorderRows(pattern).flat().map((pixel) => pixel ? "1" : "0").join("");
 }
 
 export const DEFAULT_CLOCK_SETTINGS = Object.freeze({
@@ -190,9 +199,8 @@ function normalizeChoice(value, choices, fallback) {
 }
 
 export function normalizeClockSettings(settings = {}) {
-  const customBorder = typeof settings.customBorder === "string" && settings.customBorder.length === CLOCK_BORDER_PIXEL_COUNT && /^[01]+$/.test(settings.customBorder)
-    ? settings.customBorder
-    : DEFAULT_CLOCK_SETTINGS.customBorder;
+  const validCustomBorder = typeof settings.customBorder === "string" && [PERIMETER_PIXEL_COUNT, CLOCK_BORDER_PIXEL_COUNT].includes(settings.customBorder.length) && /^[01]+$/.test(settings.customBorder);
+  const customBorder = validCustomBorder ? normalizeCustomBorder(settings.customBorder) : DEFAULT_CLOCK_SETTINGS.customBorder;
   return {
     ...DEFAULT_CLOCK_SETTINGS,
     ...settings,
@@ -243,18 +251,19 @@ function drawBorder(rows, settings, phase) {
   if (style === "none") return;
   if (style === "custom") {
     const borderRows = clockBorderRows(settings.customBorder);
-    for (let y = 0; y < DISPLAY_HEIGHT; y += 1) for (let x = 0; x < DISPLAY_WIDTH; x += 1) rows[y][x] ||= borderRows[y][x];
+    const customizable = clockCustomizableRows(settings);
+    for (let y = 0; y < DISPLAY_HEIGHT; y += 1) for (let x = 0; x < DISPLAY_WIDTH; x += 1) rows[y][x] ||= borderRows[y][x] && customizable[y][x];
     return;
   }
   BORDER_POSITIONS.forEach(([x, y], index) => {
     if (borderMatches(style, x, y, index)) rows[y][x] = true;
     if (style === "chase" && (index + phase) % 4 === 0) rows[y][x] = true;
     if (style === "marquee" && (Math.floor((index + phase * 2) / 2) % 2 === 0)) rows[y][x] = true;
-    if (style === "orbit" && ((index - phase * 7 + CLOCK_BORDER_PIXEL_COUNT) % CLOCK_BORDER_PIXEL_COUNT) < 5) rows[y][x] = true;
+    if (style === "orbit" && ((index - phase * 7 + PERIMETER_PIXEL_COUNT) % PERIMETER_PIXEL_COUNT) < 5) rows[y][x] = true;
   });
 }
 
-function renderFace(date, settings, phase, yOffset = 0) {
+function renderFace(date, settings, phase, yOffset = 0, includeBorder = true) {
   const rows = blank();
   const { hourText, minuteText, marker } = clockTimeParts(date, settings);
   const displayHour = hourText.startsWith(" ") ? hourText.trimStart() : hourText;
@@ -285,7 +294,7 @@ function renderFace(date, settings, phase, yOffset = 0) {
     }
   }
   if (markerWidth) drawGlyph(rows, markerGlyph, left + 1, top + Math.max(0, digitHeight - markerGlyph.length));
-  drawBorder(rows, settings, phase);
+  if (includeBorder) drawBorder(rows, settings, phase);
   return rows;
 }
 
@@ -298,14 +307,60 @@ function dilate(rows, border) {
   return output;
 }
 
+function clockPhaseCount(settings) {
+  return settings.animation === "bounce" ? 4 : settings.animation === "static" ? 1 : 2;
+}
+
+function dateForClockValue(hour, minute, timezone) {
+  const date = new Date(0);
+  if (timezone === "utc") {
+    date.setUTCFullYear(2026, 0, 1);
+    date.setUTCHours(hour, minute, 0, 0);
+  } else {
+    date.setFullYear(2026, 0, 1);
+    date.setHours(hour, minute, 0, 0);
+  }
+  return date;
+}
+
+export function clockCustomizableRows(rawSettings = DEFAULT_CLOCK_SETTINGS) {
+  const settings = normalizeClockSettings(rawSettings);
+  const cacheKey = JSON.stringify({
+    font: settings.font,
+    format: settings.format,
+    leadingZero: settings.leadingZero,
+    marker: settings.marker,
+    animation: settings.animation,
+    timezone: settings.timezone,
+    framed: settings.border !== "none"
+  });
+  if (customizableRowsCache.has(cacheKey)) return customizableRowsCache.get(cacheKey);
+  const reserved = blank();
+  const bounce = [0, -1, 0, 1];
+  const phaseCount = clockPhaseCount(settings);
+  for (let hour = 0; hour < 24; hour += 1) for (let minute = 0; minute < 60; minute += 1) {
+    const date = dateForClockValue(hour, minute, settings.timezone);
+    for (let phase = 0; phase < phaseCount; phase += 1) {
+      let frame = renderFace(date, settings, phase, settings.animation === "bounce" ? bounce[phase] : 0, false);
+      if (settings.animation === "pulse" && phase % 2 === 1) frame = dilate(frame, settings.border);
+      for (let y = 0; y < DISPLAY_HEIGHT; y += 1) for (let x = 0; x < DISPLAY_WIDTH; x += 1) reserved[y][x] ||= frame[y][x];
+    }
+  }
+  const customizable = reserved.map((row) => row.map((pixel) => !pixel));
+  customizableRowsCache.set(cacheKey, customizable);
+  return customizable;
+}
+
 export function createClockFrames(date = new Date(), rawSettings = DEFAULT_CLOCK_SETTINGS) {
   const settings = normalizeClockSettings(rawSettings);
-  const animationFrames = settings.animation === "static" ? 1 : settings.animation === "bounce" ? 4 : settings.animation === "pulse" ? 2 : 2;
+  const animationFrames = clockPhaseCount(settings);
   const count = ["chase", "marquee", "orbit"].includes(settings.border) ? Math.max(4, animationFrames) : animationFrames;
   const bounce = [0, -1, 0, 1];
   return Array.from({ length: count }, (_, phase) => {
-    const frame = renderFace(date, settings, phase, settings.animation === "bounce" ? bounce[phase % bounce.length] : 0);
-    return settings.animation === "pulse" && phase % 2 === 1 ? dilate(frame, settings.border) : frame;
+    let frame = renderFace(date, settings, phase, settings.animation === "bounce" ? bounce[phase % bounce.length] : 0, false);
+    if (settings.animation === "pulse" && phase % 2 === 1) frame = dilate(frame, settings.border);
+    drawBorder(frame, settings, phase);
+    return frame;
   });
 }
 

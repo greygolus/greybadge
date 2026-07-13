@@ -31,7 +31,7 @@ npm run dev
 - Physically accurate full 44×11 preview with optional compact scroll lock
 - Unicode text, image dithering, and an interactive pixel editor
 - Quick create flow for text, pixel art, and frame animations
-- Clock Studio with seven pixel fonts, ten premade borders, a draw-your-own border editor, four time animations, improved single-digit centering, 12/24-hour formats, UTC support, snapshots, uncapped exact-minute sync, and a lower-wear five-minute mode
+- Clock Studio with seven pixel fonts, ten premade borders, a full-display safe-pixel decoration editor, four time animations, improved single-digit centering, 12/24-hour formats, UTC support, snapshots, uncapped exact-minute sync, and a lower-wear five-minute mode
 - Frame Studio with playback, horizontal or vertical frame strips, up to 12 frames, frame reordering, and adjustable previous-frame onion skinning
 - Every existing slot and premade animation can be opened and remixed
 - Searchable categorized library with 70+ animations, icons, and patterns

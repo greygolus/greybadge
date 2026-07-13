@@ -25,6 +25,7 @@ import {
   DEFAULT_CLOCK_SETTINGS,
   clockBorderPositionIndex,
   clockBorderRows,
+  clockCustomizableRows,
   clockSyncKey,
   clockTimeParts,
   createClockBorderPattern,
@@ -90,6 +91,7 @@ let clockWriteInProgress = false;
 let clockWakeLock = null;
 let clockBorderDrawing = false;
 let clockBorderDrawValue = true;
+let clockEditableRows = [];
 
 const elements = {
   slotList: $("#slotList"),
@@ -381,6 +383,26 @@ function drawLedCanvas(canvas, rows, pixelSize) {
       ctx.roundRect(x * pixelSize + gap / 2, y * pixelSize + gap / 2, pixelSize - gap, pixelSize - gap, pixelSize * .22);
       ctx.fill();
     }
+  }
+  ctx.shadowBlur = 0;
+}
+
+function drawClockDecorationEditor(decoration, editable, clockPreview) {
+  const canvas = elements.clockBorderCanvas;
+  const ctx = canvas.getContext("2d");
+  const cell = canvas.width / DISPLAY_WIDTH;
+  ctx.fillStyle = "#020402";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (let y = 0; y < DISPLAY_HEIGHT; y += 1) for (let x = 0; x < DISPLAY_WIDTH; x += 1) {
+    const active = decoration[y][x] && editable[y][x];
+    const timePixel = clockPreview[y][x];
+    const gap = Math.max(1, cell * .18);
+    ctx.fillStyle = active ? "#ff4938" : timePixel ? "#8f3d35" : editable[y][x] ? "#26100d" : "#101719";
+    ctx.shadowColor = active ? "#ff2f23" : "transparent";
+    ctx.shadowBlur = active ? cell * .65 : 0;
+    ctx.beginPath();
+    ctx.roundRect(x * cell + gap / 2, y * cell + gap / 2, cell - gap, cell - gap, cell * .22);
+    ctx.fill();
   }
   ctx.shadowBlur = 0;
 }
@@ -770,15 +792,23 @@ function readClockControls() {
   renderClockBorderDesigner();
 }
 
-function renderClockBorderDesigner() {
+function renderClockBorderDesigner(previewRows = null) {
   const visible = clockSettings.border === "custom";
   elements.clockBorderDesigner.hidden = !visible;
   if (!visible) return;
-  drawLedCanvas(elements.clockBorderCanvas, clockBorderRows(clockSettings.customBorder), 16);
+  clockEditableRows = clockCustomizableRows(clockSettings);
+  const emptyDecoration = "0".repeat(CLOCK_BORDER_PIXEL_COUNT);
+  const clockPreview = previewRows || createClockFrames(new Date(), { ...clockSettings, customBorder: emptyDecoration })[0];
+  const editableCount = clockEditableRows.flat().filter(Boolean).length;
+  $("#clockBorderPixelCount").textContent = `${editableCount} safe pixels available`;
+  drawClockDecorationEditor(clockBorderRows(clockSettings.customBorder), clockEditableRows, clockPreview);
 }
 
 function setClockBorderPixel(index, active) {
   if (index < 0 || index >= CLOCK_BORDER_PIXEL_COUNT || clockActive) return;
+  const x = index % DISPLAY_WIDTH;
+  const y = Math.floor(index / DISPLAY_WIDTH);
+  if (!clockEditableRows[y]?.[x]) return;
   const pixels = [...clockSettings.customBorder];
   const value = active ? "1" : "0";
   if (pixels[index] === value) return;
@@ -795,7 +825,7 @@ function editClockBorder(event, chooseValue = false) {
   const x = Math.floor((event.clientX - rect.left) / rect.width * DISPLAY_WIDTH);
   const y = Math.floor((event.clientY - rect.top) / rect.height * DISPLAY_HEIGHT);
   const index = clockBorderPositionIndex(x, y);
-  if (index < 0) return false;
+  if (index < 0 || !clockEditableRows[y]?.[x]) return false;
   if (chooseValue) clockBorderDrawValue = event.button === 2 ? false : clockSettings.customBorder[index] !== "1";
   setClockBorderPixel(index, clockBorderDrawValue);
   return true;
@@ -824,6 +854,7 @@ function renderClockPreview(now) {
   if (signature !== clockPreviewSignature) {
     clockPreviewFrames = createClockFrames(date, clockSettings);
     clockPreviewSignature = signature;
+    if (clockSettings.border === "custom") renderClockBorderDesigner(clockPreviewFrames[0]);
   }
   const interval = Math.max(130, 1100 - clockSettings.speed * 100);
   const frame = Math.floor(now / interval) % clockPreviewFrames.length;
@@ -1279,7 +1310,13 @@ $("#saveFrameAnimation").addEventListener("click", () => {
 document.querySelectorAll(".clock-controls select, .clock-controls input").forEach((control) => control.addEventListener("input", readClockControls));
 document.querySelectorAll("[data-clock-border-pattern]").forEach((button) => button.addEventListener("click", () => {
   if (clockActive) return;
-  clockSettings = normalizeClockSettings({ ...clockSettings, border: "custom", customBorder: createClockBorderPattern(button.dataset.clockBorderPattern) });
+  const editable = clockCustomizableRows({ ...clockSettings, border: "custom" });
+  const pattern = [...createClockBorderPattern(button.dataset.clockBorderPattern)].map((pixel, index) => {
+    const x = index % DISPLAY_WIDTH;
+    const y = Math.floor(index / DISPLAY_WIDTH);
+    return pixel === "1" && editable[y][x] ? "1" : "0";
+  }).join("");
+  clockSettings = normalizeClockSettings({ ...clockSettings, border: "custom", customBorder: pattern });
   $("#clockBorder").value = "custom";
   clockPreviewSignature = "";
   persistClockSettings();

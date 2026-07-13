@@ -175,15 +175,16 @@
         </div>
       </div>
       <section id="clockBorderDesigner" class="clock-border-designer" hidden>
-        <div class="subheading"><div><p class="eyebrow">CUSTOM BORDER</p><h3>Draw around the clock</h3></div><small>Only the outer LED ring is editable</small></div>
-        <canvas id="clockBorderCanvas" width="704" height="176" aria-label="Custom clock border pixel editor"></canvas>
+        <div class="subheading"><div><p class="eyebrow">CUSTOM DECORATION</p><h3>Draw everywhere time never uses</h3></div><small id="clockBorderPixelCount">Calculating safe pixels...</small></div>
+        <canvas id="clockBorderCanvas" width="704" height="176" aria-label="Custom clock decoration pixel editor"></canvas>
+        <div class="clock-border-legend"><span class="decoration">Your decoration</span><span class="clock">Current time</span><span class="protected">Protected time zone</span></div>
         <div class="clock-border-tools">
           <button type="button" class="button secondary" data-clock-border-pattern="clear">Clear</button>
-          <button type="button" class="button secondary" data-clock-border-pattern="solid">Solid</button>
+          <button type="button" class="button secondary" data-clock-border-pattern="solid">Fill safe pixels</button>
           <button type="button" class="button secondary" data-clock-border-pattern="corners">Corners</button>
           <button type="button" class="button secondary" data-clock-border-pattern="dots">Dots</button>
         </div>
-        <small class="clock-border-help">Click an edge LED to toggle it, then drag to draw. Right-click and drag to erase.</small>
+        <small class="clock-border-help">Click or drag on any dark-red pixel. The dim center zone is locked because one of the clock’s possible times or animation frames needs it. Right-click and drag to erase.</small>
       </section>
       <aside class="clock-hardware-note">
         <b>How live sync works</b>

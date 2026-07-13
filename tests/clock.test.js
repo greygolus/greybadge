@@ -7,6 +7,7 @@ import {
   CLOCK_FONTS,
   clockBorderPositionIndex,
   clockBorderRows,
+  clockCustomizableRows,
   clockSyncKey,
   clockTimeParts,
   createClockBorderPattern,
@@ -38,18 +39,45 @@ test("single-digit hours are centered without reserving a hidden zero", () => {
   assert.ok(Math.abs(compact.center - 21.5) <= 0.5);
 });
 
-test("custom borders store every perimeter LED and never paint the clock interior", () => {
+test("custom clock decorations store the full display", () => {
   const solid = createClockBorderPattern("solid");
   const clear = createClockBorderPattern("clear");
   assert.equal(solid.length, CLOCK_BORDER_PIXEL_COUNT);
   assert.equal(solid, "1".repeat(CLOCK_BORDER_PIXEL_COUNT));
   assert.equal(clear, "0".repeat(CLOCK_BORDER_PIXEL_COUNT));
   assert.equal(clockBorderPositionIndex(0, 0), 0);
-  assert.equal(clockBorderPositionIndex(0, 1), CLOCK_BORDER_PIXEL_COUNT - 1);
-  assert.equal(clockBorderPositionIndex(12, 5), -1);
+  assert.equal(clockBorderPositionIndex(43, 10), CLOCK_BORDER_PIXEL_COUNT - 1);
+  assert.equal(clockBorderPositionIndex(12, 5), 232);
   const rows = clockBorderRows(solid);
+  assert.ok(rows.flat().every(Boolean));
+});
+
+test("old perimeter-only borders migrate into the full-display format", () => {
+  const migrated = normalizeClockSettings({ customBorder: "1".repeat(106) }).customBorder;
+  assert.equal(migrated.length, CLOCK_BORDER_PIXEL_COUNT);
+  const rows = clockBorderRows(migrated);
   assert.ok(rows[0].every(Boolean) && rows[10].every(Boolean));
   assert.ok(rows.slice(1, -1).every((row) => row[0] && row[43] && row.slice(1, -1).every((pixel) => !pixel)));
+});
+
+test("custom decorations expose interior pixels without ever covering possible clock pixels", () => {
+  for (const animation of ["bounce", "pulse"]) {
+    const settings = { font: "tall", format: "12", leadingZero: false, marker: true, border: "custom", animation };
+    const editable = clockCustomizableRows(settings);
+    const editableCount = editable.flat().filter(Boolean).length;
+    assert.ok(editableCount > 106, "the editor should expose more than the perimeter");
+    assert.ok(editableCount < CLOCK_BORDER_PIXEL_COUNT, "the changing time area must stay protected");
+    assert.ok(editable.slice(1, -1).some((row) => row.slice(1, -1).some(Boolean)), "some interior pixels should be editable");
+
+    const clearFrames = createClockFrames(localDate, { ...settings, customBorder: createClockBorderPattern("clear") });
+    const filledFrames = createClockFrames(localDate, { ...settings, customBorder: createClockBorderPattern("solid") });
+    for (let frameIndex = 0; frameIndex < clearFrames.length; frameIndex += 1) {
+      for (let y = 0; y < 11; y += 1) for (let x = 0; x < 44; x += 1) {
+        if (editable[y][x]) assert.equal(filledFrames[frameIndex][y][x], true);
+        else assert.equal(filledFrames[frameIndex][y][x], clearFrames[frameIndex][y][x]);
+      }
+    }
+  }
 });
 
 test("animated border families produce self-playing frame loops", () => {
