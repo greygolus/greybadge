@@ -17,12 +17,23 @@ import {
   createCustomAnimation,
   getLibraryEntry
 } from "./library.js";
+import {
+  CLOCK_ANIMATIONS,
+  CLOCK_BORDERS,
+  CLOCK_FONTS,
+  DEFAULT_CLOCK_SETTINGS,
+  clockTimeParts,
+  createClockFrames,
+  createClockSlot,
+  normalizeClockSettings
+} from "./clock.js";
 
 inject({ mode: import.meta.env.PROD ? "production" : "development" });
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const STORAGE_KEY = "badgebetter-project-v1";
 const FAVORITES_KEY = "badgebetter-favorites-v1";
+const CLOCK_STORAGE_KEY = "badgebetter-clock-v1";
 const brightnessLevels = [25, 50, 75, 100];
 
 const makeSlot = (text = "NEW MESSAGE") => ({
@@ -62,6 +73,14 @@ let studioPlaying = true;
 let studioDrawing = false;
 let studioEraseMode = false;
 let studioOrientation = "horizontal";
+let clockSettings = loadClockSettings();
+let clockPreviewFrames = [];
+let clockPreviewSignature = "";
+let clockActive = false;
+let clockStopAt = 0;
+let clockLastMinute = null;
+let clockTimer = null;
+let clockWriteInProgress = false;
 
 const elements = {
   slotList: $("#slotList"),
@@ -92,6 +111,10 @@ const elements = {
   framePreview: $("#framePreviewCanvas"),
   frameEditor: $("#frameEditorCanvas"),
   frameSequence: $("#frameSequence"),
+  clockDialog: $("#clockDialog"),
+  clockCanvas: $("#clockCanvas"),
+  clockLiveStatus: $("#clockLiveStatus"),
+  clockReadout: $("#clockReadout"),
   libraryGrid: $("#libraryGrid"),
   showGrid: $("#showGrid"),
   loadedTray: $("#loadedTray"),
@@ -104,6 +127,18 @@ const elements = {
 
 function blankRows(width = DISPLAY_WIDTH) {
   return Array.from({ length: DISPLAY_HEIGHT }, () => Array(width).fill(false));
+}
+
+function loadClockSettings() {
+  try {
+    return normalizeClockSettings(JSON.parse(localStorage.getItem(CLOCK_STORAGE_KEY)) || DEFAULT_CLOCK_SETTINGS);
+  } catch {
+    return normalizeClockSettings(DEFAULT_CLOCK_SETTINGS);
+  }
+}
+
+function persistClockSettings() {
+  localStorage.setItem(CLOCK_STORAGE_KEY, JSON.stringify(clockSettings));
 }
 
 function loadState() {
@@ -678,6 +713,150 @@ function moveStudioFrame(delta) {
   renderFrameStudio();
 }
 
+function populateClockChoices() {
+  const fill = (select, choices) => {
+    select.replaceChildren(...choices.map(([value, label]) => new Option(label, value)));
+  };
+  fill($("#clockFont"), CLOCK_FONTS);
+  fill($("#clockBorder"), CLOCK_BORDERS);
+  fill($("#clockAnimation"), CLOCK_ANIMATIONS);
+}
+
+function syncClockControls() {
+  $("#clockFont").value = clockSettings.font;
+  $("#clockFormat").value = clockSettings.format;
+  $("#clockBorder").value = clockSettings.border;
+  $("#clockAnimation").value = clockSettings.animation;
+  $("#clockTimezone").value = clockSettings.timezone;
+  $("#clockSession").value = String(clockSettings.sessionMinutes);
+  $("#clockSpeed").value = String(clockSettings.speed);
+  $("#clockSpeedValue").textContent = String(clockSettings.speed);
+  $("#clockLeadingZero").checked = clockSettings.leadingZero;
+  $("#clockMarker").checked = clockSettings.marker;
+  $("#clockMarker").disabled = clockSettings.format === "24";
+}
+
+function readClockControls() {
+  clockSettings = normalizeClockSettings({
+    font: $("#clockFont").value,
+    format: $("#clockFormat").value,
+    border: $("#clockBorder").value,
+    animation: $("#clockAnimation").value,
+    timezone: $("#clockTimezone").value,
+    sessionMinutes: Number($("#clockSession").value),
+    speed: Number($("#clockSpeed").value),
+    leadingZero: $("#clockLeadingZero").checked,
+    marker: $("#clockMarker").checked
+  });
+  $("#clockSpeedValue").textContent = String(clockSettings.speed);
+  $("#clockMarker").disabled = clockSettings.format === "24";
+  clockPreviewSignature = "";
+  persistClockSettings();
+}
+
+function setClockSessionUi() {
+  elements.clockLiveStatus.classList.toggle("active", clockActive);
+  $("#startClock").disabled = clockActive || clockWriteInProgress;
+  $("#stopClock").disabled = !clockActive;
+  document.querySelectorAll(".clock-controls select, .clock-controls input").forEach((control) => { control.disabled = clockActive; });
+}
+
+function openClockStudio() {
+  syncClockControls();
+  setClockSessionUi();
+  clockPreviewSignature = "";
+  elements.clockDialog.showModal();
+}
+
+function renderClockPreview(now) {
+  const date = new Date();
+  const signature = `${Math.floor(date.getTime() / 60000)}:${JSON.stringify(clockSettings)}`;
+  if (signature !== clockPreviewSignature) {
+    clockPreviewFrames = createClockFrames(date, clockSettings);
+    clockPreviewSignature = signature;
+  }
+  const interval = Math.max(130, 1100 - clockSettings.speed * 100);
+  const frame = Math.floor(now / interval) % clockPreviewFrames.length;
+  drawLedCanvas(elements.clockCanvas, clockPreviewFrames[frame], 12);
+
+  const parts = clockTimeParts(date, clockSettings);
+  const mark = clockSettings.format === "12" && clockSettings.marker ? parts.marker : "";
+  elements.clockReadout.textContent = `${parts.hourText.trim()}:${parts.minuteText}${mark}`;
+  const status = $("span", elements.clockLiveStatus);
+  if (clockWriteInProgress) {
+    status.textContent = "Syncing the current minute to the badge...";
+  } else if (clockActive) {
+    const nextSync = 60 - date.getSeconds();
+    const remaining = Math.max(1, Math.ceil((clockStopAt - Date.now()) / 60000));
+    status.textContent = `Live · next sync in ${nextSync}s · ${remaining} min left`;
+  } else {
+    status.textContent = clockSettings.timezone === "utc" ? "Previewing UTC" : "Previewing your local time";
+  }
+}
+
+async function syncClockToBadge() {
+  if (!clockActive || !connectedDevice || clockWriteInProgress) return false;
+  clockWriteInProgress = true;
+  setClockSessionUi();
+  try {
+    const date = new Date();
+    const slot = createClockSlot(date, clockSettings);
+    const { payload, usedBytes } = buildPayload([slot], state.brightness, date);
+    await writePayload(connectedDevice, payload);
+    clockLastMinute = Math.floor(date.getTime() / 60000);
+    elements.sendTitle.textContent = "Clock Mode is live";
+    elements.sendSubtitle.textContent = `${usedBytes.toLocaleString()} bytes synced. Send your playlist when you want to restore it.`;
+    return true;
+  } catch (error) {
+    stopClock(`Clock sync failed: ${error.message}`);
+    return false;
+  } finally {
+    clockWriteInProgress = false;
+    setClockSessionUi();
+  }
+}
+
+function stopClock(message = "Live clock stopped. The last synced time remains on the badge.") {
+  clockActive = false;
+  clockStopAt = 0;
+  clockLastMinute = null;
+  clearInterval(clockTimer);
+  clockTimer = null;
+  setClockSessionUi();
+  if (message) toast(message);
+}
+
+async function clockTick() {
+  if (!clockActive) return;
+  if (Date.now() >= clockStopAt) return stopClock("Clock session finished. Start another session whenever you need it.");
+  const minute = Math.floor(Date.now() / 60000);
+  if (minute !== clockLastMinute) await syncClockToBadge();
+}
+
+async function startClock() {
+  readClockControls();
+  if (!connectedDevice) await connectBadge(true);
+  if (!connectedDevice) return toast("Connect the badge to start live Clock Mode.");
+  if (!confirm("Start live Clock Mode? This temporarily replaces the playlist currently stored on the physical badge.")) return;
+  clockActive = true;
+  clockStopAt = Date.now() + clockSettings.sessionMinutes * 60000;
+  clockLastMinute = null;
+  setClockSessionUi();
+  if (!await syncClockToBadge()) return;
+  clockTimer = setInterval(clockTick, 1000);
+  toast("Clock Mode started. Keep this tab open.");
+}
+
+function addClockSnapshot() {
+  readClockControls();
+  if (state.slots.length >= 8) return toast("All eight badge slots are already in use.");
+  state.slots.push(createClockSlot(new Date(), clockSettings));
+  selectedIndex = state.slots.length - 1;
+  persist();
+  renderSlots();
+  toast("Current clock face added to the playlist as a snapshot.");
+}
+
 function animate(now) {
   const elapsed = previewRunning ? now - previewStarted : 0;
   const slot = state.slots[selectedIndex];
@@ -696,24 +875,27 @@ function animate(now) {
     const frame = studioPlaying ? Math.floor(now / Math.max(90, 900 - speed * 90)) % studioFrames.length : activeStudioFrame;
     drawLedCanvas(elements.framePreview, studioFrames[frame], 12);
   }
+  if (elements.clockDialog.open) renderClockPreview(now);
   requestAnimationFrame(animate);
 }
 
 async function connectBadge(prompt = true) {
   if (!("hid" in navigator)) {
     toast("Open this app in Microsoft Edge or Google Chrome to use USB.");
-    return;
+    return null;
   }
   try {
     const devices = prompt
       ? await navigator.hid.requestDevice({ filters: [{ vendorId: BADGE_VENDOR_ID, productId: BADGE_PRODUCT_ID }] })
       : await navigator.hid.getDevices();
     const device = devices.find((item) => item.vendorId === BADGE_VENDOR_ID && item.productId === BADGE_PRODUCT_ID);
-    if (!device) return;
+    if (!device) return null;
     if (!device.opened) await device.open();
     setDevice(device);
+    return device;
   } catch (error) {
     toast(`Could not connect: ${error.message}`);
+    return null;
   }
 }
 
@@ -730,6 +912,7 @@ function setDevice(device) {
 }
 
 function disconnectDevice() {
+  if (clockActive) stopClock("Badge disconnected, so live Clock Mode stopped.");
   connectedDevice = null;
   elements.deviceStatus.innerHTML = "<i></i> Badge not connected";
   elements.deviceStatus.classList.remove("connected");
@@ -741,6 +924,8 @@ function disconnectDevice() {
 
 async function sendToBadge() {
   if (!connectedDevice) return connectBadge(true);
+  if (clockWriteInProgress) return toast("Wait for the current clock sync to finish.");
+  if (clockActive) stopClock("");
   try {
     elements.sendButton.disabled = true;
     elements.sendTitle.textContent = "Uploading…";
@@ -861,6 +1046,7 @@ function syncGlobalControls() {
 
 $("#addSlot").addEventListener("click", openCreateDialog);
 $("#newCreationButton").addEventListener("click", openCreateDialog);
+$("#clockButton").addEventListener("click", openClockStudio);
 $("#previousPreview").addEventListener("click", () => selectSlot((selectedIndex - 1 + state.slots.length) % state.slots.length));
 $("#nextPreview").addEventListener("click", () => selectSlot((selectedIndex + 1) % state.slots.length));
 $("#playPreview").addEventListener("click", (event) => {
@@ -1022,6 +1208,11 @@ $("#saveFrameAnimation").addEventListener("click", () => {
   renderSlots();
   toast(`${studioFrames.length}-frame animation saved.`);
 });
+document.querySelectorAll(".clock-controls select, .clock-controls input").forEach((control) => control.addEventListener("input", readClockControls));
+$("#clockSnapshot").addEventListener("click", addClockSnapshot);
+$("#startClock").addEventListener("click", startClock);
+$("#stopClock").addEventListener("click", () => stopClock());
+document.addEventListener("visibilitychange", () => { if (!document.hidden) clockTick(); });
 
 if ("hid" in navigator) {
   navigator.hid.addEventListener("disconnect", (event) => { if (event.device === connectedDevice) disconnectDevice(); });
@@ -1029,6 +1220,9 @@ if ("hid" in navigator) {
   connectBadge(false);
 }
 
+populateClockChoices();
+syncClockControls();
+setClockSessionUi();
 syncGlobalControls();
 syncScrollLock();
 renderSlots();

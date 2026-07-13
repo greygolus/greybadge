@@ -31,12 +31,19 @@ npm run dev
 - Physically accurate full 44×11 preview with optional compact scroll lock
 - Unicode text, image dithering, and an interactive pixel editor
 - Quick create flow for text, pixel art, and frame animations
+- Clock Studio with four pixel fonts, five borders, four time animations, 12/24-hour formats, UTC support, snapshots, and minute-accurate live sync
 - Frame Studio with playback, horizontal or vertical frame strips, up to 12 frames, frame reordering, and adjustable previous-frame onion skinning
 - Every existing slot and premade animation can be opened and remixed
 - Searchable categorized library with 70+ animations, icons, and patterns
 - Eight one-click multi-slot shows and an Effect Lab for procedural animation
 - Auto-save plus JSON project import and export
 - Direct WebHID upload with no replacement driver
+
+## Clock Mode
+
+The stock CH546 firmware stores a timestamp but does not render it as a clock. GreyBadge works around that honestly: live Clock Mode uploads one refreshed clock slot when the minute changes while the browser tab and badge remain connected. The animation frames run on the badge between updates.
+
+Live sessions stop automatically after 30 minutes to 4 hours to limit repeated storage writes. Some badge variants switch back to their charging screen while connected over USB; press the badge button to return to message playback. Clock snapshots are ordinary frozen playlist slots and do not require an ongoing connection.
 
 ## Hardware safety
 

@@ -75,6 +75,7 @@
 
         <section class="panel tools-panel">
           <p class="eyebrow">DESIGN TOOLS</p>
+          <button id="clockButton" class="tool-button clock-tool"><span>◷</span><div><b>Clock mode</b><small>Build a live, animated clock face</small></div><i>LIVE</i></button>
           <button id="newCreationButton" class="tool-button featured"><span>＋</span><div><b>Create from scratch</b><small>Text, pixel art, or frame animation</small></div><i>→</i></button>
           <button id="libraryButton" class="tool-button"><span>◫</span><div><b>Premade library</b><small>70+ animations, icons &amp; patterns</small></div><i>→</i></button>
           <button id="frameStudioButton" class="tool-button"><span>▤</span><div><b>Frame studio</b><small>Build or edit full animations</small></div><i>→</i></button>
@@ -148,6 +149,41 @@
         <label>Playback speed <output id="effectSpeedValue">5</output><input id="effectSpeed" type="range" min="1" max="8" value="5"></label>
       </div>
       <div class="dialog-actions"><span></span><span></span><span></span><button id="applyEffect" class="button primary">Create animation</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="clockDialog" class="clock-dialog">
+    <div class="dialog-card clock-dialog-card">
+      <div class="dialog-heading"><div><p class="eyebrow">CLOCK STUDIO</p><h2>Make time look good</h2></div><button class="icon-button dialog-close" aria-label="Close Clock Studio">×</button></div>
+      <p>Design a minute-accurate clock face, save a frozen copy to your playlist, or keep it synced while this tab and badge stay connected.</p>
+      <div class="clock-preview-wrap">
+        <canvas id="clockCanvas" width="528" height="132"></canvas>
+        <div id="clockLiveStatus" class="clock-live-status"><i></i><span>Previewing your local time</span><b id="clockReadout">--:--</b></div>
+      </div>
+      <div class="clock-controls">
+        <label>Pixel font<select id="clockFont"></select></label>
+        <label>Time format<select id="clockFormat"><option value="12">12 hour</option><option value="24">24 hour</option></select></label>
+        <label>Border<select id="clockBorder"></select></label>
+        <label>Time animation<select id="clockAnimation"></select></label>
+        <label>Time source<select id="clockTimezone"><option value="local">This computer</option><option value="utc">UTC</option></select></label>
+        <label>Live session<select id="clockSession"><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="240">4 hours</option></select></label>
+        <label class="clock-speed">Animation speed <output id="clockSpeedValue">2</output><input id="clockSpeed" type="range" min="1" max="8" value="2"></label>
+        <div class="clock-toggles">
+          <label><input id="clockLeadingZero" type="checkbox"><span></span>Leading zero</label>
+          <label><input id="clockMarker" type="checkbox" checked><span></span>AM / PM mark</label>
+        </div>
+      </div>
+      <aside class="clock-hardware-note">
+        <b>How live sync works</b>
+        <p>The stock CH546 firmware cannot draw its stored timestamp. GreyBadge sends one refreshed clock slot at each minute change; animations run on the badge between syncs. Keep this tab open and use the badge button if your model returns to its charging screen.</p>
+        <small>Live sessions stop automatically to limit repeated storage writes. Starting Clock Mode temporarily replaces the playlist on the physical badge; your project here stays untouched.</small>
+      </aside>
+      <div class="clock-actions">
+        <button id="clockSnapshot" class="button secondary">＋ Add snapshot to playlist</button>
+        <span></span>
+        <button id="stopClock" class="button secondary danger" disabled>Stop live clock</button>
+        <button id="startClock" class="button primary">Start live clock</button>
+      </div>
     </div>
   </dialog>
 

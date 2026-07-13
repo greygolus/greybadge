@@ -231,6 +231,29 @@ dialog::backdrop { background: #030506dc; backdrop-filter: blur(8px); }
 .button.danger { color: #ff8c83; border-color: #63302b; }
 .frame-studio-footer { position: sticky; bottom: -30px; z-index: 4; margin: 24px -28px -30px; padding: 13px 28px; background: #111719f4; backdrop-filter: blur(12px); border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; }
 .frame-studio-footer span { color: var(--muted); font: 10px ui-monospace,monospace; }
+.tool-button.clock-tool { margin-top: 4px; border: 1px solid #71372f; border-radius: 8px; padding: 9px 10px; background: linear-gradient(135deg, #29110f, #121719 70%); }
+.tool-button.clock-tool > i { color: #ff9a91; font: 800 8px ui-monospace,monospace; letter-spacing: .12em; }
+.clock-dialog { max-width: none; max-height: none; width: min(980px, calc(100vw - 28px)); }
+.clock-dialog-card { width: 100%; max-height: calc(100vh - 28px); overflow-y: auto; padding: 26px 28px 28px; }
+.clock-preview-wrap { background: #050202; border: 1px solid #4a2926; border-radius: 10px; padding: 15px; margin: 22px 0 18px; }
+.clock-preview-wrap canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+.clock-live-status { min-height: 34px; margin-top: 10px; border-top: 1px solid #321815; padding: 10px 3px 0; display: grid; grid-template-columns: auto 1fr auto; gap: 9px; align-items: center; color: var(--muted); font-size: 10px; }
+.clock-live-status i { width: 7px; height: 7px; border-radius: 50%; background: #596469; }
+.clock-live-status b { color: #ff9a91; font: 700 12px ui-monospace,monospace; }
+.clock-live-status.active { color: var(--text); }
+.clock-live-status.active i { background: var(--green); box-shadow: 0 0 10px var(--green); }
+.clock-controls { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 13px; border: 1px solid var(--line); border-radius: 9px; background: #0d1214; padding: 15px; }
+.clock-controls > label, .clock-speed { display: grid; grid-template-columns: 1fr auto; gap: 7px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.clock-controls select, .clock-controls input { grid-column: 1 / -1; }
+.clock-controls output { color: var(--green); font-family: ui-monospace,monospace; }
+.clock-toggles { grid-column: span 2; display: flex; gap: 18px; align-items: center; padding-top: 17px; }
+.clock-toggles label { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; cursor: pointer; }
+.clock-toggles input { accent-color: var(--green); }
+.clock-hardware-note { margin-top: 14px; border-left: 3px solid var(--green); border-radius: 0 8px 8px 0; background: #24100e; padding: 13px 15px; }
+.clock-hardware-note b { font-size: 12px; }
+.clock-hardware-note p { color: #d2b0ac; font-size: 11px; line-height: 1.5; margin: 5px 0; }
+.clock-hardware-note small { color: #9f7e7a; font-size: 9px; line-height: 1.45; display: block; }
+.clock-actions { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; margin-top: 18px; }
 #toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); background: var(--text); color: #111; padding: 11px 16px; border-radius: 8px; font-weight: 700; font-size: 12px; opacity: 0; pointer-events: none; transition: .2s; z-index: 30; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 @media (max-width: 850px) {
@@ -253,6 +276,10 @@ dialog::backdrop { background: #030506dc; backdrop-filter: blur(8px); }
   .create-options { grid-template-columns: 1fr; }
   .create-options > button { min-height: 120px; grid-template-columns: 48px 1fr auto; grid-template-rows: 1fr; align-items: center; gap: 10px; }
   .frame-studio-options { grid-template-columns: 1fr 1fr; }
+  .clock-controls { grid-template-columns: 1fr 1fr; }
+  .clock-toggles { grid-column: 1 / -1; }
+  .clock-actions { grid-template-columns: 1fr 1fr; }
+  .clock-actions > span { display: none; }
 }
 @media (max-width: 560px) {
   .topbar { padding: 0 14px; }
@@ -266,4 +293,7 @@ dialog::backdrop { background: #030506dc; backdrop-filter: blur(8px); }
   .slot-main { padding: 16px 13px; }
   .send-bar small { display: none; }
   .library-category-grid, .show-grid { grid-template-columns: 1fr; }
+  .clock-controls { grid-template-columns: 1fr; }
+  .clock-toggles { display: grid; gap: 10px; padding-top: 4px; }
+  .clock-actions { grid-template-columns: 1fr; }
 }
