@@ -19,11 +19,15 @@ import {
 } from "./library.js";
 import {
   CLOCK_ANIMATIONS,
+  CLOCK_BORDER_PIXEL_COUNT,
   CLOCK_BORDERS,
   CLOCK_FONTS,
   DEFAULT_CLOCK_SETTINGS,
+  clockBorderPositionIndex,
+  clockBorderRows,
   clockSyncKey,
   clockTimeParts,
+  createClockBorderPattern,
   createClockFrames,
   createClockSlot,
   normalizeClockSettings,
@@ -84,6 +88,8 @@ let clockLastSync = null;
 let clockTimer = null;
 let clockWriteInProgress = false;
 let clockWakeLock = null;
+let clockBorderDrawing = false;
+let clockBorderDrawValue = true;
 
 const elements = {
   slotList: $("#slotList"),
@@ -116,6 +122,8 @@ const elements = {
   frameSequence: $("#frameSequence"),
   clockDialog: $("#clockDialog"),
   clockCanvas: $("#clockCanvas"),
+  clockBorderDesigner: $("#clockBorderDesigner"),
+  clockBorderCanvas: $("#clockBorderCanvas"),
   clockLiveStatus: $("#clockLiveStatus"),
   clockReadout: $("#clockReadout"),
   libraryGrid: $("#libraryGrid"),
@@ -738,6 +746,7 @@ function syncClockControls() {
   $("#clockLeadingZero").checked = clockSettings.leadingZero;
   $("#clockMarker").checked = clockSettings.marker;
   $("#clockMarker").disabled = clockSettings.format === "24";
+  renderClockBorderDesigner();
 }
 
 function readClockControls() {
@@ -751,12 +760,45 @@ function readClockControls() {
     sessionMinutes: Number($("#clockSession").value),
     speed: Number($("#clockSpeed").value),
     leadingZero: $("#clockLeadingZero").checked,
-    marker: $("#clockMarker").checked
+    marker: $("#clockMarker").checked,
+    customBorder: clockSettings.customBorder
   });
   $("#clockSpeedValue").textContent = String(clockSettings.speed);
   $("#clockMarker").disabled = clockSettings.format === "24";
   clockPreviewSignature = "";
   persistClockSettings();
+  renderClockBorderDesigner();
+}
+
+function renderClockBorderDesigner() {
+  const visible = clockSettings.border === "custom";
+  elements.clockBorderDesigner.hidden = !visible;
+  if (!visible) return;
+  drawLedCanvas(elements.clockBorderCanvas, clockBorderRows(clockSettings.customBorder), 16);
+}
+
+function setClockBorderPixel(index, active) {
+  if (index < 0 || index >= CLOCK_BORDER_PIXEL_COUNT || clockActive) return;
+  const pixels = [...clockSettings.customBorder];
+  const value = active ? "1" : "0";
+  if (pixels[index] === value) return;
+  pixels[index] = value;
+  clockSettings = normalizeClockSettings({ ...clockSettings, border: "custom", customBorder: pixels.join("") });
+  $("#clockBorder").value = "custom";
+  clockPreviewSignature = "";
+  persistClockSettings();
+  renderClockBorderDesigner();
+}
+
+function editClockBorder(event, chooseValue = false) {
+  const rect = elements.clockBorderCanvas.getBoundingClientRect();
+  const x = Math.floor((event.clientX - rect.left) / rect.width * DISPLAY_WIDTH);
+  const y = Math.floor((event.clientY - rect.top) / rect.height * DISPLAY_HEIGHT);
+  const index = clockBorderPositionIndex(x, y);
+  if (index < 0) return false;
+  if (chooseValue) clockBorderDrawValue = event.button === 2 ? false : clockSettings.customBorder[index] !== "1";
+  setClockBorderPixel(index, clockBorderDrawValue);
+  return true;
 }
 
 function setClockSessionUi() {
@@ -764,6 +806,9 @@ function setClockSessionUi() {
   $("#startClock").disabled = clockActive || clockWriteInProgress;
   $("#stopClock").disabled = !clockActive;
   document.querySelectorAll(".clock-controls select, .clock-controls input").forEach((control) => { control.disabled = clockActive; });
+  document.querySelectorAll(".clock-border-tools button").forEach((control) => { control.disabled = clockActive; });
+  elements.clockBorderCanvas.classList.toggle("disabled", clockActive);
+  elements.clockBorderCanvas.setAttribute("aria-disabled", String(clockActive));
 }
 
 function openClockStudio() {
@@ -1232,6 +1277,23 @@ $("#saveFrameAnimation").addEventListener("click", () => {
   toast(`${studioFrames.length}-frame animation saved.`);
 });
 document.querySelectorAll(".clock-controls select, .clock-controls input").forEach((control) => control.addEventListener("input", readClockControls));
+document.querySelectorAll("[data-clock-border-pattern]").forEach((button) => button.addEventListener("click", () => {
+  if (clockActive) return;
+  clockSettings = normalizeClockSettings({ ...clockSettings, border: "custom", customBorder: createClockBorderPattern(button.dataset.clockBorderPattern) });
+  $("#clockBorder").value = "custom";
+  clockPreviewSignature = "";
+  persistClockSettings();
+  renderClockBorderDesigner();
+}));
+elements.clockBorderCanvas.addEventListener("contextmenu", (event) => event.preventDefault());
+elements.clockBorderCanvas.addEventListener("pointerdown", (event) => {
+  if (clockActive || !editClockBorder(event, true)) return;
+  clockBorderDrawing = true;
+  elements.clockBorderCanvas.setPointerCapture(event.pointerId);
+});
+elements.clockBorderCanvas.addEventListener("pointermove", (event) => { if (clockBorderDrawing) editClockBorder(event); });
+elements.clockBorderCanvas.addEventListener("pointerup", () => { clockBorderDrawing = false; });
+elements.clockBorderCanvas.addEventListener("pointercancel", () => { clockBorderDrawing = false; });
 $("#clockSnapshot").addEventListener("click", addClockSnapshot);
 $("#startClock").addEventListener("click", startClock);
 $("#stopClock").addEventListener("click", () => stopClock());

@@ -249,6 +249,13 @@ dialog::backdrop { background: #030506dc; backdrop-filter: blur(8px); }
 .clock-toggles { display: flex; gap: 18px; align-items: center; padding-top: 17px; }
 .clock-toggles label { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; cursor: pointer; }
 .clock-toggles input { accent-color: var(--green); }
+.clock-border-designer { margin-top: 14px; border: 1px solid #5a302c; border-radius: 9px; background: linear-gradient(135deg, #170b0a, #0d1214 68%); padding: 15px; }
+.clock-border-designer[hidden] { display: none; }
+.clock-border-designer .subheading { margin-bottom: 12px; }
+#clockBorderCanvas { display: block; width: 100%; height: auto; aspect-ratio: 4 / 1; border: 1px solid #5a302c; border-radius: 6px; background: #050202; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
+#clockBorderCanvas.disabled { cursor: not-allowed; opacity: .55; }
+.clock-border-tools { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+.clock-border-help { display: block; margin-top: 9px; color: #9f7e7a; font-size: 9px; line-height: 1.45; }
 .clock-hardware-note { margin-top: 14px; border-left: 3px solid var(--green); border-radius: 0 8px 8px 0; background: #24100e; padding: 13px 15px; }
 .clock-hardware-note b { font-size: 12px; }
 .clock-hardware-note p { color: #d2b0ac; font-size: 11px; line-height: 1.5; margin: 5px 0; }

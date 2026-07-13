@@ -1,6 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CLOCK_ANIMATIONS, CLOCK_BORDERS, CLOCK_FONTS, clockSyncKey, clockTimeParts, createClockFrames, createClockSlot, normalizeClockSettings, secondsUntilClockSync } from "../clock.js";
+import {
+  CLOCK_ANIMATIONS,
+  CLOCK_BORDER_PIXEL_COUNT,
+  CLOCK_BORDERS,
+  CLOCK_FONTS,
+  clockBorderPositionIndex,
+  clockBorderRows,
+  clockSyncKey,
+  clockTimeParts,
+  createClockBorderPattern,
+  createClockFrames,
+  createClockSlot,
+  normalizeClockSettings,
+  secondsUntilClockSync
+} from "../clock.js";
 import { buildPayload } from "../protocol.js";
 
 const localDate = new Date(2026, 6, 13, 9, 5, 0);
@@ -8,6 +22,42 @@ const localDate = new Date(2026, 6, 13, 9, 5, 0);
 test("formats 12 and 24 hour clock values", () => {
   assert.deepEqual(clockTimeParts(localDate, { format: "12", leadingZero: false }), { hourText: " 9", minuteText: "05", marker: "A" });
   assert.deepEqual(clockTimeParts(localDate, { format: "24" }), { hourText: "09", minuteText: "05", marker: "A" });
+});
+
+test("single-digit hours are centered without reserving a hidden zero", () => {
+  const bounds = (frame) => {
+    const litColumns = frame.flatMap((row) => row.map((pixel, x) => pixel ? x : -1)).filter((x) => x >= 0);
+    const min = Math.min(...litColumns);
+    const max = Math.max(...litColumns);
+    return { min, max, width: max - min + 1, center: (min + max) / 2 };
+  };
+  const options = { format: "12", marker: false, border: "none", animation: "static", font: "tall" };
+  const compact = bounds(createClockFrames(localDate, { ...options, leadingZero: false })[0]);
+  const padded = bounds(createClockFrames(localDate, { ...options, leadingZero: true })[0]);
+  assert.ok(compact.width < padded.width);
+  assert.ok(Math.abs(compact.center - 21.5) <= 0.5);
+});
+
+test("custom borders store every perimeter LED and never paint the clock interior", () => {
+  const solid = createClockBorderPattern("solid");
+  const clear = createClockBorderPattern("clear");
+  assert.equal(solid.length, CLOCK_BORDER_PIXEL_COUNT);
+  assert.equal(solid, "1".repeat(CLOCK_BORDER_PIXEL_COUNT));
+  assert.equal(clear, "0".repeat(CLOCK_BORDER_PIXEL_COUNT));
+  assert.equal(clockBorderPositionIndex(0, 0), 0);
+  assert.equal(clockBorderPositionIndex(0, 1), CLOCK_BORDER_PIXEL_COUNT - 1);
+  assert.equal(clockBorderPositionIndex(12, 5), -1);
+  const rows = clockBorderRows(solid);
+  assert.ok(rows[0].every(Boolean) && rows[10].every(Boolean));
+  assert.ok(rows.slice(1, -1).every((row) => row[0] && row[43] && row.slice(1, -1).every((pixel) => !pixel)));
+});
+
+test("animated border families produce self-playing frame loops", () => {
+  for (const border of ["chase", "marquee", "orbit"]) {
+    const frames = createClockFrames(localDate, { border, animation: "static" });
+    assert.equal(frames.length, 4);
+    assert.notDeepEqual(frames[0], frames[1]);
+  }
 });
 
 test("every clock customization renders valid badge frames", () => {
@@ -40,11 +90,12 @@ test("exact and low-wear sync schedules use stable time buckets", () => {
 });
 
 test("invalid saved clock settings migrate back to safe defaults", () => {
-  const settings = normalizeClockSettings({ font: "missing", border: "bad", animation: "nope", speed: 99, sessionMinutes: 999 });
+  const settings = normalizeClockSettings({ font: "missing", border: "bad", customBorder: "not pixels", animation: "nope", speed: 99, sessionMinutes: 999 });
   assert.equal(settings.font, "tall");
   assert.equal(settings.border, "corners");
   assert.equal(settings.animation, "colon");
   assert.equal(settings.speed, 8);
   assert.equal(settings.syncMinutes, 1);
   assert.equal(settings.sessionMinutes, 0);
+  assert.equal(settings.customBorder, createClockBorderPattern("corners"));
 });

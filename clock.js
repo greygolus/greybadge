@@ -2,7 +2,10 @@ export const CLOCK_FONTS = [
   ["matrix", "Matrix 3 x 5"],
   ["tall", "Tall 3 x 7"],
   ["wide", "Wide 5 x 7"],
-  ["segment", "Seven segment"]
+  ["segment", "Seven segment"],
+  ["mini", "Mini 2 x 5"],
+  ["block", "Block 4 x 7"],
+  ["rounded", "Rounded 5 x 7"]
 ];
 
 export const CLOCK_BORDERS = [
@@ -10,7 +13,13 @@ export const CLOCK_BORDERS = [
   ["solid", "Solid frame"],
   ["corners", "Corner brackets"],
   ["dots", "Dotted frame"],
-  ["chase", "Chasing lights"]
+  ["rails", "Top & bottom rails"],
+  ["brackets", "Side brackets"],
+  ["ticks", "Center ticks"],
+  ["chase", "Chasing lights"],
+  ["marquee", "Cinema marquee"],
+  ["orbit", "Orbiting spark"],
+  ["custom", "Custom drawn border"]
 ];
 
 export const CLOCK_ANIMATIONS = [
@@ -20,9 +29,52 @@ export const CLOCK_ANIMATIONS = [
   ["bounce", "One-pixel bounce"]
 ];
 
+const DISPLAY_WIDTH = 44;
+const DISPLAY_HEIGHT = 11;
+const FRAME_WIDTH = 48;
+
+const BORDER_POSITIONS = [
+  ...Array.from({ length: DISPLAY_WIDTH }, (_, x) => [x, 0]),
+  ...Array.from({ length: DISPLAY_HEIGHT - 2 }, (_, y) => [DISPLAY_WIDTH - 1, y + 1]),
+  ...Array.from({ length: DISPLAY_WIDTH }, (_, x) => [DISPLAY_WIDTH - 1 - x, DISPLAY_HEIGHT - 1]),
+  ...Array.from({ length: DISPLAY_HEIGHT - 2 }, (_, y) => [0, DISPLAY_HEIGHT - 2 - y])
+];
+
+export const CLOCK_BORDER_PIXEL_COUNT = BORDER_POSITIONS.length;
+
+export function clockBorderPositionIndex(x, y) {
+  if (y === 0 && x >= 0 && x < DISPLAY_WIDTH) return x;
+  if (x === DISPLAY_WIDTH - 1 && y > 0 && y < DISPLAY_HEIGHT - 1) return DISPLAY_WIDTH + y - 1;
+  if (y === DISPLAY_HEIGHT - 1 && x >= 0 && x < DISPLAY_WIDTH) return DISPLAY_WIDTH + DISPLAY_HEIGHT - 2 + (DISPLAY_WIDTH - 1 - x);
+  if (x === 0 && y > 0 && y < DISPLAY_HEIGHT - 1) return DISPLAY_WIDTH * 2 + DISPLAY_HEIGHT - 2 + (DISPLAY_HEIGHT - 2 - y);
+  return -1;
+}
+
+function borderMatches(style, x, y, index = 0) {
+  if (style === "solid") return true;
+  if (style === "corners") return (y % (DISPLAY_HEIGHT - 1) === 0 && (x < 5 || x >= DISPLAY_WIDTH - 5)) || (x % (DISPLAY_WIDTH - 1) === 0 && (y < 4 || y >= DISPLAY_HEIGHT - 4));
+  if (style === "dots") return index % 3 === 0;
+  if (style === "rails") return y === 0 || y === DISPLAY_HEIGHT - 1;
+  if (style === "brackets") return x === 0 || x === DISPLAY_WIDTH - 1;
+  if (style === "ticks") return (y % (DISPLAY_HEIGHT - 1) === 0 && Math.abs(x - (DISPLAY_WIDTH - 1) / 2) < 4) || (x % (DISPLAY_WIDTH - 1) === 0 && Math.abs(y - (DISPLAY_HEIGHT - 1) / 2) < 3);
+  return false;
+}
+
+export function createClockBorderPattern(style = "corners") {
+  return BORDER_POSITIONS.map(([x, y], index) => borderMatches(style, x, y, index) ? "1" : "0").join("");
+}
+
+export function clockBorderRows(pattern = "") {
+  const rows = Array.from({ length: DISPLAY_HEIGHT }, () => Array(DISPLAY_WIDTH).fill(false));
+  const safePattern = typeof pattern === "string" && pattern.length === CLOCK_BORDER_PIXEL_COUNT ? pattern : createClockBorderPattern("corners");
+  BORDER_POSITIONS.forEach(([x, y], index) => { rows[y][x] = safePattern[index] === "1"; });
+  return rows;
+}
+
 export const DEFAULT_CLOCK_SETTINGS = Object.freeze({
   font: "tall",
   border: "corners",
+  customBorder: createClockBorderPattern("corners"),
   animation: "colon",
   format: "12",
   leadingZero: false,
@@ -32,10 +84,6 @@ export const DEFAULT_CLOCK_SETTINGS = Object.freeze({
   syncMinutes: 1,
   sessionMinutes: 0
 });
-
-const DISPLAY_WIDTH = 44;
-const DISPLAY_HEIGHT = 11;
-const FRAME_WIDTH = 48;
 
 const MATRIX = {
   "0": ["111", "101", "101", "101", "111"],
@@ -69,6 +117,34 @@ const TALL = {
   " ": ["000", "000", "000", "000", "000", "000", "000"]
 };
 
+const MINI = {
+  "0": ["11", "10", "10", "01", "11"],
+  "1": ["01", "11", "01", "01", "11"],
+  "2": ["11", "01", "11", "10", "11"],
+  "3": ["11", "01", "11", "01", "11"],
+  "4": ["11", "11", "11", "01", "01"],
+  "5": ["11", "10", "11", "01", "11"],
+  "6": ["11", "10", "11", "11", "11"],
+  "7": ["11", "01", "01", "01", "01"],
+  "8": ["11", "10", "11", "01", "11"],
+  "9": ["11", "11", "11", "01", "11"],
+  " ": ["00", "00", "00", "00", "00"]
+};
+
+const ROUNDED = {
+  "0": ["01110", "11011", "10101", "10101", "10101", "11011", "01110"],
+  "1": ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
+  "2": ["01110", "10001", "00001", "00110", "01000", "10000", "11111"],
+  "3": ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
+  "4": ["10010", "10010", "10010", "11111", "00010", "00010", "00010"],
+  "5": ["11111", "10000", "10000", "11110", "00001", "00001", "11110"],
+  "6": ["01110", "10000", "10000", "11110", "10001", "10001", "01110"],
+  "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+  "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
+  "9": ["01110", "10001", "10001", "01111", "00001", "00001", "01110"],
+  " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"]
+};
+
 const SEGMENTS = {
   "0": "abcedf", "1": "bc", "2": "abged", "3": "abgcd", "4": "fgbc",
   "5": "afgcd", "6": "afgecd", "7": "abc", "8": "abcdefg", "9": "abfgcd"
@@ -94,8 +170,16 @@ function wideGlyph(character) {
   return source.map((row) => `${row[0]}${row[0]}${row[1]}${row[2]}${row[2]}`);
 }
 
+function blockGlyph(character) {
+  const source = TALL[character] || TALL[" "];
+  return source.map((row) => `${row[0]}${row[1]}${row[1]}${row[2]}`);
+}
+
 function glyphFor(character, font) {
   if (font === "matrix") return MATRIX[character] || MATRIX[" "];
+  if (font === "mini") return MINI[character] || MINI[" "];
+  if (font === "block") return blockGlyph(character);
+  if (font === "rounded") return ROUNDED[character] || ROUNDED[" "];
   if (font === "wide") return wideGlyph(character);
   if (font === "segment" && /\d/.test(character)) return segmentGlyph(character);
   return TALL[character] || TALL[" "];
@@ -106,6 +190,9 @@ function normalizeChoice(value, choices, fallback) {
 }
 
 export function normalizeClockSettings(settings = {}) {
+  const customBorder = typeof settings.customBorder === "string" && settings.customBorder.length === CLOCK_BORDER_PIXEL_COUNT && /^[01]+$/.test(settings.customBorder)
+    ? settings.customBorder
+    : DEFAULT_CLOCK_SETTINGS.customBorder;
   return {
     ...DEFAULT_CLOCK_SETTINGS,
     ...settings,
@@ -116,6 +203,7 @@ export function normalizeClockSettings(settings = {}) {
     timezone: settings.timezone === "utc" ? "utc" : "local",
     leadingZero: Boolean(settings.leadingZero),
     marker: settings.marker !== false,
+    customBorder,
     speed: Math.min(8, Math.max(1, Number(settings.speed) || DEFAULT_CLOCK_SETTINGS.speed)),
     syncMinutes: [1, 5].includes(Number(settings.syncMinutes)) ? Number(settings.syncMinutes) : DEFAULT_CLOCK_SETTINGS.syncMinutes,
     sessionMinutes: [0, 30, 60, 120, 240].includes(Number(settings.sessionMinutes)) ? Number(settings.sessionMinutes) : DEFAULT_CLOCK_SETTINGS.sessionMinutes
@@ -150,33 +238,35 @@ function drawGlyph(rows, glyph, left, top) {
   }));
 }
 
-function drawBorder(rows, style, phase) {
+function drawBorder(rows, settings, phase) {
+  const style = settings.border;
   if (style === "none") return;
-  if (style === "solid") {
-    for (let x = 0; x < DISPLAY_WIDTH; x += 1) rows[0][x] = rows[DISPLAY_HEIGHT - 1][x] = true;
-    for (let y = 0; y < DISPLAY_HEIGHT; y += 1) rows[y][0] = rows[y][DISPLAY_WIDTH - 1] = true;
-  } else if (style === "corners") {
-    for (let x = 0; x < 5; x += 1) rows[0][x] = rows[0][DISPLAY_WIDTH - 1 - x] = rows[DISPLAY_HEIGHT - 1][x] = rows[DISPLAY_HEIGHT - 1][DISPLAY_WIDTH - 1 - x] = true;
-    for (let y = 0; y < 4; y += 1) rows[y][0] = rows[y][DISPLAY_WIDTH - 1] = rows[DISPLAY_HEIGHT - 1 - y][0] = rows[DISPLAY_HEIGHT - 1 - y][DISPLAY_WIDTH - 1] = true;
-  } else {
-    const stride = style === "chase" ? 4 : 3;
-    const offset = style === "chase" ? phase % stride : 0;
-    for (let x = 0; x < DISPLAY_WIDTH; x += 1) if ((x + offset) % stride === 0) rows[0][x] = rows[DISPLAY_HEIGHT - 1][DISPLAY_WIDTH - 1 - x] = true;
-    for (let y = 1; y < DISPLAY_HEIGHT - 1; y += 1) if ((y + offset) % stride === 0) rows[y][0] = rows[DISPLAY_HEIGHT - 1 - y][DISPLAY_WIDTH - 1] = true;
+  if (style === "custom") {
+    const borderRows = clockBorderRows(settings.customBorder);
+    for (let y = 0; y < DISPLAY_HEIGHT; y += 1) for (let x = 0; x < DISPLAY_WIDTH; x += 1) rows[y][x] ||= borderRows[y][x];
+    return;
   }
+  BORDER_POSITIONS.forEach(([x, y], index) => {
+    if (borderMatches(style, x, y, index)) rows[y][x] = true;
+    if (style === "chase" && (index + phase) % 4 === 0) rows[y][x] = true;
+    if (style === "marquee" && (Math.floor((index + phase * 2) / 2) % 2 === 0)) rows[y][x] = true;
+    if (style === "orbit" && ((index - phase * 7 + CLOCK_BORDER_PIXEL_COUNT) % CLOCK_BORDER_PIXEL_COUNT) < 5) rows[y][x] = true;
+  });
 }
 
 function renderFace(date, settings, phase, yOffset = 0) {
   const rows = blank();
   const { hourText, minuteText, marker } = clockTimeParts(date, settings);
-  const text = `${hourText}:${minuteText}`;
+  const displayHour = hourText.startsWith(" ") ? hourText.trimStart() : hourText;
+  const text = `${displayHour}:${minuteText}`;
   const digitGlyph = glyphFor("8", settings.font);
   const digitWidth = digitGlyph[0].length;
   const digitHeight = digitGlyph.length;
   const colonWidth = 1;
   const markerGlyph = glyphFor(marker, settings.font === "matrix" ? "matrix" : "tall");
   const markerWidth = settings.format === "12" && settings.marker ? markerGlyph[0].length + 2 : 0;
-  const textWidth = digitWidth * 4 + colonWidth + 4 + markerWidth;
+  const digitCount = [...text].filter((character) => /\d/.test(character)).length;
+  const textWidth = digitWidth * digitCount + colonWidth + text.length - 1 + markerWidth;
   let left = Math.floor((DISPLAY_WIDTH - textWidth) / 2);
   const usableTop = settings.border === "none" ? 0 : 1;
   const usableHeight = settings.border === "none" ? DISPLAY_HEIGHT : DISPLAY_HEIGHT - 2;
@@ -195,7 +285,7 @@ function renderFace(date, settings, phase, yOffset = 0) {
     }
   }
   if (markerWidth) drawGlyph(rows, markerGlyph, left + 1, top + Math.max(0, digitHeight - markerGlyph.length));
-  drawBorder(rows, settings.border, phase);
+  drawBorder(rows, settings, phase);
   return rows;
 }
 
@@ -211,7 +301,7 @@ function dilate(rows, border) {
 export function createClockFrames(date = new Date(), rawSettings = DEFAULT_CLOCK_SETTINGS) {
   const settings = normalizeClockSettings(rawSettings);
   const animationFrames = settings.animation === "static" ? 1 : settings.animation === "bounce" ? 4 : settings.animation === "pulse" ? 2 : 2;
-  const count = settings.border === "chase" ? Math.max(4, animationFrames) : animationFrames;
+  const count = ["chase", "marquee", "orbit"].includes(settings.border) ? Math.max(4, animationFrames) : animationFrames;
   const bounce = [0, -1, 0, 1];
   return Array.from({ length: count }, (_, phase) => {
     const frame = renderFace(date, settings, phase, settings.animation === "bounce" ? bounce[phase % bounce.length] : 0);
